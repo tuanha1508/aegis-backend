@@ -1,10 +1,18 @@
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
 from app.db.database import get_connection
 from app.models.phase import PhaseResponse, PhaseSetRequest
 
 router = APIRouter(tags=["phase"])
 
 PHASES = ["pre_storm", "active_storm", "post_storm"]
+
+
+class OrchestratorRequest(BaseModel):
+    phase: Optional[str] = None
 
 
 @router.get("/phase", response_model=PhaseResponse)
@@ -55,3 +63,18 @@ async def set_phase(request: PhaseSetRequest):
         return dict(row)
     finally:
         conn.close()
+
+
+@router.post("/phase/orchestrate")
+async def orchestrate(body: Optional[OrchestratorRequest] = None):
+    """Run the full agent pipeline for the current (or specified) disaster phase.
+
+    - Pre-storm: Monitor → Alert (sequential)
+    - Active storm: Field Report → Severity → [Resource + Alert] (sequential + parallel)
+    - Post-storm: [Reunification + Resource] (parallel)
+    """
+    from app.agents.orchestrator import run_orchestrator
+
+    phase_override = body.phase if body else None
+    result = await run_orchestrator(phase_override=phase_override)
+    return result

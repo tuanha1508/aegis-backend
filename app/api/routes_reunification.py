@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter
@@ -104,27 +105,27 @@ async def get_matches():
 
 @router.post("/reunification/match")
 async def trigger_matching():
+    """Trigger the Reunification Agent to match missing persons with found persons."""
     run_id = uuid4()
+    from app.agents.reunification_agent import run_reunification_agent
+
+    result: Any = await run_reunification_agent()
+
     conn = get_connection()
     try:
         row = conn.execute("SELECT current_phase FROM phase WHERE id = 1").fetchone()
         phase = row["current_phase"] if row else None
+        payload = result if isinstance(result, dict) else {"result": result}
         insert_audit_log(
             conn,
             agent_name="reunification_agent",
             run_id=run_id,
             phase=phase,
             input_payload={"trigger": "POST /reunification/match"},
-            output_payload={
-                "status": "pending",
-                "message": "Reunification Agent not yet connected",
-            },
+            output_payload=payload,
         )
         conn.commit()
     finally:
         conn.close()
-    return {
-        "status": "pending",
-        "message": "Reunification Agent not yet connected",
-        "run_id": str(run_id),
-    }
+
+    return {**payload, "run_id": str(run_id)}
