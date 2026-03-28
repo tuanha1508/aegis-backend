@@ -32,4 +32,8 @@ async def create_report(report: ReportCreate):
 
 @router.post("/reports/process")
 async def process_reports():
-    return {"status": "pending", "message": "Field Report Agent not yet connected"}
+    """Trigger the Field Report Agent to batch-process all unprocessed reports."""
+    from app.agents.field_report_agent import run_field_report_agent
+
+    result = await run_field_report_agent()
+    return result

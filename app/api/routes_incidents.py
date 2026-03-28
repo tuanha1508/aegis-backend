@@ -23,4 +23,8 @@ async def get_incidents(severity: Optional[str] = Query(None)):
 
 @router.post("/incidents/rank")
 async def rank_incidents():
-    return {"status": "pending", "message": "Severity Agent not yet connected"}
+    """Trigger the Severity Agent to score and rank processed reports into incidents."""
+    from app.agents.severity_agent import run_severity_agent
+
+    result = await run_severity_agent()
+    return result

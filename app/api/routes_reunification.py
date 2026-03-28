@@ -96,4 +96,8 @@ async def get_matches():
 
 @router.post("/reunification/match")
 async def trigger_matching():
-    return {"status": "pending", "message": "Reunification Agent not yet connected"}
+    """Trigger the Reunification Agent to match missing persons with found persons."""
+    from app.agents.reunification_agent import run_reunification_agent
+
+    result = await run_reunification_agent()
+    return result

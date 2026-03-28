@@ -1,7 +1,7 @@
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path("aegis.db")
+DB_PATH = Path(__file__).parent.parent.parent / "aegis.db"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS phase (
