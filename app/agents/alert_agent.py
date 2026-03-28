@@ -41,12 +41,10 @@ def get_risk_data() -> dict:
     Use this to understand which areas are most at risk before generating alerts.
     """
     conn = get_connection()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM risk_assessments ORDER BY flood_risk DESC"
-        ).fetchall()
-    finally:
-        conn.close()
+    rows = conn.execute(
+        "SELECT * FROM risk_assessments ORDER BY flood_risk DESC"
+    ).fetchall()
+    conn.close()
 
     if not rows:
         return {"status": "no_data", "assessments": []}
@@ -65,10 +63,8 @@ def get_current_phase() -> dict:
     - post_storm: focus on recovery resources and reunification
     """
     conn = get_connection()
-    try:
-        row = conn.execute("SELECT current_phase FROM phase WHERE id = 1").fetchone()
-    finally:
-        conn.close()
+    row = conn.execute("SELECT current_phase FROM phase WHERE id = 1").fetchone()
+    conn.close()
 
     phase = row["current_phase"] if row else "pre_storm"
     return {"phase": phase}
@@ -82,12 +78,11 @@ def get_active_incidents() -> dict:
     generate alerts about ongoing emergencies.
     """
     conn = get_connection()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM incidents WHERE resolved = 0 ORDER BY severity_score DESC"
-        ).fetchall()
-    finally:
-        conn.close()
+    rows = conn.execute(
+        """SELECT * FROM incidents WHERE resolved = false
+           ORDER BY severity_score DESC NULLS LAST"""
+    ).fetchall()
+    conn.close()
 
     if not rows:
         return {"status": "no_incidents", "incidents": []}
@@ -119,16 +114,14 @@ def save_alert(
     Returns the saved alert ID.
     """
     conn = get_connection()
-    try:
-        row = conn.execute(
-            """INSERT INTO alerts (phase, priority, neighborhood, title, message, message_es, channels, delivered)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, 1) RETURNING id""",
-            (phase, priority, neighborhood, title, message, message_es, channels),
-        ).fetchone()
-        conn.commit()
-        alert_id = row["id"]
-    finally:
-        conn.close()
+    row = conn.execute(
+        """INSERT INTO alerts (phase, priority, neighborhood, title, message, message_es, channels, delivered)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, true) RETURNING id""",
+        (phase, priority, neighborhood, title, message, message_es, channels),
+    ).fetchone()
+    conn.commit()
+    alert_id = row["id"] if row else None
+    conn.close()
 
     return {"status": "saved", "alert_id": alert_id}
 
@@ -314,17 +307,15 @@ async def run_alert_agent(context: str | None = None) -> dict:
             "alerts_generated": 0,
         }
 
-    # Fetch alerts that were just created
+    # Fetch alerts that were just created (last 30 seconds)
     conn = get_connection()
-    try:
-        rows = conn.execute(
-            """SELECT id, phase, priority, neighborhood, title, channels, created_at
-               FROM alerts
-               ORDER BY created_at DESC
-               LIMIT 20"""
-        ).fetchall()
-    finally:
-        conn.close()
+    rows = conn.execute(
+        """SELECT id, phase, priority, neighborhood, title, channels, created_at
+           FROM alerts
+           ORDER BY created_at DESC
+           LIMIT 20"""
+    ).fetchall()
+    conn.close()
 
     recent_alerts = [dict(r) for r in rows]
 

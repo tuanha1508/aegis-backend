@@ -37,12 +37,10 @@ def get_missing_persons() -> dict:
               physical descriptions, and last known locations.
     """
     conn = get_connection()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM missing_persons WHERE status = 'missing' ORDER BY created_at DESC"
-        ).fetchall()
-    finally:
-        conn.close()
+    rows = conn.execute(
+        "SELECT * FROM missing_persons WHERE status = 'missing' ORDER BY created_at DESC"
+    ).fetchall()
+    conn.close()
 
     if not rows:
         return {"status": "no_data", "missing": []}
@@ -58,12 +56,10 @@ def get_found_persons() -> dict:
               descriptions, and where they were found/checked in.
     """
     conn = get_connection()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM found_persons WHERE matched_missing_id IS NULL ORDER BY checked_in DESC"
-        ).fetchall()
-    finally:
-        conn.close()
+    rows = conn.execute(
+        "SELECT * FROM found_persons WHERE matched_missing_id IS NULL ORDER BY checked_in DESC"
+    ).fetchall()
+    conn.close()
 
     if not rows:
         return {"status": "no_data", "found": []}
@@ -93,30 +89,28 @@ def save_match(
         dict: Status and the saved match ID.
     """
     conn = get_connection()
-    try:
-        row = conn.execute(
-            """INSERT INTO matches (missing_id, found_id, confidence, match_factors, status)
-               VALUES (%s, %s, %s, %s, 'pending') RETURNING id""",
-            (missing_id, found_id, confidence, match_factors),
-        ).fetchone()
+    row = conn.execute(
+        """INSERT INTO matches (missing_id, found_id, confidence, match_factors, status)
+           VALUES (%s, %s, %s, %s, 'pending') RETURNING id""",
+        (missing_id, found_id, confidence, match_factors),
+    ).fetchone()
 
-        # Update found_persons to link the match
+    # Update found_persons to link the match
+    conn.execute(
+        "UPDATE found_persons SET matched_missing_id = %s WHERE id = %s",
+        (missing_id, found_id),
+    )
+
+    # If high confidence, update missing person status
+    if confidence >= 0.8:
         conn.execute(
-            "UPDATE found_persons SET matched_missing_id = %s WHERE id = %s",
-            (missing_id, found_id),
+            "UPDATE missing_persons SET status = 'likely_found' WHERE id = %s",
+            (missing_id,),
         )
 
-        # If high confidence, update missing person status
-        if confidence >= 0.8:
-            conn.execute(
-                "UPDATE missing_persons SET status = 'likely_found' WHERE id = %s",
-                (missing_id,),
-            )
-
-        conn.commit()
-        match_id = row["id"]
-    finally:
-        conn.close()
+    conn.commit()
+    match_id = row["id"] if row else None
+    conn.close()
 
     return {"status": "saved", "match_id": match_id}
 
@@ -280,12 +274,10 @@ async def run_reunification_agent() -> dict[str, Any]:
 
     # Fetch matches from DB
     conn = get_connection()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM matches ORDER BY confidence DESC"
-        ).fetchall()
-    finally:
-        conn.close()
+    rows = conn.execute(
+        "SELECT * FROM matches ORDER BY confidence DESC"
+    ).fetchall()
+    conn.close()
 
     matches = [dict(r) for r in rows]
 

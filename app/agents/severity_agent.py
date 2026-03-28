@@ -38,14 +38,12 @@ def get_processed_reports() -> dict:
               location, incident type, people count, and coordinates.
     """
     conn = get_connection()
-    try:
-        rows = conn.execute(
-            """SELECT * FROM reports
-               WHERE processed = 1
-               ORDER BY created_at ASC"""
-        ).fetchall()
-    finally:
-        conn.close()
+    rows = conn.execute(
+        """SELECT * FROM reports
+           WHERE processed = true
+           ORDER BY created_at ASC"""
+    ).fetchall()
+    conn.close()
 
     if not rows:
         return {"status": "no_data", "reports": []}
@@ -63,12 +61,11 @@ def get_existing_incidents() -> dict:
         dict: List of current incidents with their types, locations, and severity.
     """
     conn = get_connection()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM incidents WHERE resolved = 0 ORDER BY severity_score DESC"
-        ).fetchall()
-    finally:
-        conn.close()
+    rows = conn.execute(
+        """SELECT * FROM incidents WHERE resolved = false
+           ORDER BY severity_score DESC NULLS LAST"""
+    ).fetchall()
+    conn.close()
 
     if not rows:
         return {"status": "no_incidents", "incidents": []}
@@ -86,12 +83,10 @@ def get_resources() -> dict:
         dict: List of resources with their type, location, capacity, and status.
     """
     conn = get_connection()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM resources WHERE status = 'open' ORDER BY type"
-        ).fetchall()
-    finally:
-        conn.close()
+    rows = conn.execute(
+        "SELECT * FROM resources WHERE status = 'open' ORDER BY type"
+    ).fetchall()
+    conn.close()
 
     if not rows:
         return {"status": "no_resources", "resources": []}
@@ -131,23 +126,28 @@ def save_incident(
         dict: Status and the saved incident ID.
     """
     conn = get_connection()
-    try:
-        row = conn.execute(
-            """INSERT INTO incidents
-               (report_ids, incident_type, location_text, lat, lng,
-                severity_score, severity_label, factors, recommended_action,
-                report_count)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
-            (
-                report_ids, incident_type, location_text, lat, lng,
-                severity_score, severity_label, factors, recommended_action,
-                report_count,
-            ),
-        ).fetchone()
-        conn.commit()
-        incident_id = row["id"]
-    finally:
-        conn.close()
+    row = conn.execute(
+        """INSERT INTO incidents
+           (report_ids, incident_type, location_text, lat, lng,
+            severity_score, severity_label, factors, recommended_action,
+            report_count)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+        (
+            report_ids,
+            incident_type,
+            location_text,
+            lat,
+            lng,
+            severity_score,
+            severity_label,
+            factors,
+            recommended_action,
+            report_count,
+        ),
+    ).fetchone()
+    conn.commit()
+    incident_id = row["id"] if row else None
+    conn.close()
 
     return {"status": "saved", "incident_id": incident_id}
 
@@ -308,12 +308,10 @@ async def run_severity_agent() -> dict[str, Any]:
 
     # Fetch the incidents from DB
     conn = get_connection()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM incidents ORDER BY severity_score DESC"
-        ).fetchall()
-    finally:
-        conn.close()
+    rows = conn.execute(
+        "SELECT * FROM incidents ORDER BY severity_score DESC"
+    ).fetchall()
+    conn.close()
 
     incidents = [dict(r) for r in rows]
 

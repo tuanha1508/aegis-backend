@@ -4,7 +4,7 @@ Monitor Agent — Pre-storm risk assessment for Tampa Bay neighborhoods.
 Uses Google ADK + Gemini Flash to analyze NOAA weather data and Tampa
 evacuation zones, then produces per-neighborhood flood risk scores and
 evacuation recommendations.  Results are persisted to the risk_assessments
-table in PostgreSQL (Supabase).
+table in SQLite.
 """
 
 from __future__ import annotations
@@ -74,38 +74,39 @@ def save_risk_assessments(assessments: list[dict]) -> dict:
         dict: Status message with count of saved assessments.
     """
     conn = get_connection()
-    try:
-        # Clear previous assessments so we always have fresh data
-        conn.execute("DELETE FROM risk_assessments")
+    # Clear previous assessments so we always have fresh data
+    conn.execute("DELETE FROM risk_assessments")
 
-        saved = 0
-        for a in assessments:
-            try:
-                conn.execute(
-                    """INSERT INTO risk_assessments
-                       (neighborhood, zone, lat, lng, flood_risk,
-                        storm_surge_ft, time_to_impact_hours,
-                        recommendation, evacuate_by)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                    (
-                        a.get("neighborhood", ""),
-                        a.get("zone", ""),
-                        float(a.get("lat", 0)),
-                        float(a.get("lng", 0)),
-                        float(a.get("flood_risk", 0)),
-                        float(a.get("storm_surge_ft", 0)),
-                        float(a.get("time_to_impact_hours", 0)),
-                        a.get("recommendation", ""),
-                        a.get("evacuate_by", ""),
-                    ),
-                )
-                saved += 1
-            except Exception as exc:
-                logger.error("Failed to save assessment for %s: %s", a.get("neighborhood"), exc)
+    saved = 0
+    for a in assessments:
+        try:
+            ev = a.get("evacuate_by") or None
+            if ev == "":
+                ev = None
+            conn.execute(
+                """INSERT INTO risk_assessments
+                   (neighborhood, zone, lat, lng, flood_risk,
+                    storm_surge_ft, time_to_impact_hours,
+                    recommendation, evacuate_by)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (
+                    a.get("neighborhood", ""),
+                    a.get("zone", ""),
+                    float(a.get("lat", 0)),
+                    float(a.get("lng", 0)),
+                    float(a.get("flood_risk", 0)),
+                    float(a.get("storm_surge_ft", 0)),
+                    float(a.get("time_to_impact_hours", 0)),
+                    a.get("recommendation", ""),
+                    ev,
+                ),
+            )
+            saved += 1
+        except Exception as exc:
+            logger.error("Failed to save assessment for %s: %s", a.get("neighborhood"), exc)
 
-        conn.commit()
-    finally:
-        conn.close()
+    conn.commit()
+    conn.close()
     return {"status": "success", "saved_count": saved}
 
 
@@ -231,12 +232,10 @@ async def run_monitor_agent() -> dict[str, Any]:
 
     # Fetch the saved assessments from DB
     conn = get_connection()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM risk_assessments ORDER BY flood_risk DESC"
-        ).fetchall()
-    finally:
-        conn.close()
+    rows = conn.execute(
+        "SELECT * FROM risk_assessments ORDER BY flood_risk DESC"
+    ).fetchall()
+    conn.close()
 
     assessments = [dict(r) for r in rows]
 

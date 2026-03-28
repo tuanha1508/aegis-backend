@@ -1,5 +1,9 @@
+from typing import Any
+from uuid import uuid4
+
 from fastapi import APIRouter
 
+from app.db.audit import insert_audit_log
 from app.db.database import get_connection
 from app.models.report import ReportCreate, ReportResponse
 
@@ -36,7 +40,26 @@ async def create_report(report: ReportCreate):
 @router.post("/reports/process")
 async def process_reports():
     """Trigger the Field Report Agent to batch-process all unprocessed reports."""
+    run_id = uuid4()
     from app.agents.field_report_agent import run_field_report_agent
 
-    result = await run_field_report_agent()
-    return result
+    result: Any = await run_field_report_agent()
+
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT current_phase FROM phase WHERE id = 1").fetchone()
+        phase = row["current_phase"] if row else None
+        payload = result if isinstance(result, dict) else {"result": result}
+        insert_audit_log(
+            conn,
+            agent_name="field_report_agent",
+            run_id=run_id,
+            phase=phase,
+            input_payload={"trigger": "POST /reports/process"},
+            output_payload=payload,
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {**payload, "run_id": str(run_id)}

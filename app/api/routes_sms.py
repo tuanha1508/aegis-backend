@@ -35,7 +35,6 @@ async def sms_chat(body: SmsChatRequest):
     """
     from app.agents.field_report_agent import run_field_report_agent_single
 
-    # Store the message as an unprocessed report
     conn = get_connection()
     try:
         row = conn.execute(
@@ -48,7 +47,6 @@ async def sms_chat(body: SmsChatRequest):
     finally:
         conn.close()
 
-    # Run the Field Report Agent on this single report
     result = await run_field_report_agent_single(report_id, body.message)
 
     return {

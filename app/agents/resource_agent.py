@@ -39,12 +39,10 @@ def get_all_resources() -> dict:
               current occupancy, amenities, and status.
     """
     conn = get_connection()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM resources ORDER BY type, name"
-        ).fetchall()
-    finally:
-        conn.close()
+    rows = conn.execute(
+        "SELECT * FROM resources ORDER BY type, name"
+    ).fetchall()
+    conn.close()
 
     if not rows:
         return {"status": "no_resources", "resources": []}
@@ -70,19 +68,17 @@ def update_resource_status(
         dict: Status and updated resource data.
     """
     conn = get_connection()
-    try:
-        conn.execute(
-            """UPDATE resources SET
-               status = %s, current_occupancy = %s, notes = %s,
-               last_updated = NOW()
-               WHERE id = %s""",
-            (status, current_occupancy, notes, resource_id),
-        )
-        conn.commit()
+    conn.execute(
+        """UPDATE resources SET
+           status = %s, current_occupancy = %s, notes = %s,
+           last_updated = NOW()
+           WHERE id = %s""",
+        (status, current_occupancy, notes, resource_id),
+    )
+    conn.commit()
 
-        row = conn.execute("SELECT * FROM resources WHERE id = %s", (resource_id,)).fetchone()
-    finally:
-        conn.close()
+    row = conn.execute("SELECT * FROM resources WHERE id = %s", (resource_id,)).fetchone()
+    conn.close()
 
     if row:
         return {"status": "updated", "resource": dict(row)}
@@ -96,14 +92,12 @@ def get_incidents_needing_resources() -> dict:
     which resources to deploy where.
     """
     conn = get_connection()
-    try:
-        rows = conn.execute(
-            """SELECT * FROM incidents
-               WHERE resolved = 0
-               ORDER BY severity_score DESC"""
-        ).fetchall()
-    finally:
-        conn.close()
+    rows = conn.execute(
+        """SELECT * FROM incidents
+           WHERE resolved = false
+           ORDER BY severity_score DESC NULLS LAST"""
+    ).fetchall()
+    conn.close()
 
     if not rows:
         return {"status": "no_incidents", "incidents": []}
@@ -123,13 +117,11 @@ def find_nearest_resource(lat: float, lng: float, resource_type: str) -> dict:
         dict: The nearest resource with its distance in miles.
     """
     conn = get_connection()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM resources WHERE type = %s AND status IN ('open', 'limited')",
-            (resource_type,),
-        ).fetchall()
-    finally:
-        conn.close()
+    rows = conn.execute(
+        "SELECT * FROM resources WHERE type = %s AND status IN ('open', 'limited')",
+        (resource_type,),
+    ).fetchall()
+    conn.close()
 
     if not rows:
         return {"status": "none_available", "resource_type": resource_type}
@@ -282,10 +274,8 @@ async def run_resource_agent() -> dict[str, Any]:
 
     # Fetch current resource state
     conn = get_connection()
-    try:
-        rows = conn.execute("SELECT * FROM resources ORDER BY type, name").fetchall()
-    finally:
-        conn.close()
+    rows = conn.execute("SELECT * FROM resources ORDER BY type, name").fetchall()
+    conn.close()
 
     resources = [dict(r) for r in rows]
 
