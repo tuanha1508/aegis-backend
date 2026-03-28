@@ -41,7 +41,7 @@ def get_processed_reports() -> dict:
     try:
         rows = conn.execute(
             """SELECT * FROM reports
-               WHERE processed = 1
+               WHERE processed = TRUE
                ORDER BY created_at ASC"""
         ).fetchall()
     finally:
@@ -65,7 +65,7 @@ def get_existing_incidents() -> dict:
     conn = get_connection()
     try:
         rows = conn.execute(
-            "SELECT * FROM incidents WHERE resolved = 0 ORDER BY severity_score DESC"
+            "SELECT * FROM incidents WHERE resolved = FALSE ORDER BY severity_score DESC"
         ).fetchall()
     finally:
         conn.close()

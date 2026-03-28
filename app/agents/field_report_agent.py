@@ -43,7 +43,7 @@ def get_unprocessed_reports() -> dict:
     conn = get_connection()
     try:
         rows = conn.execute(
-            "SELECT * FROM reports WHERE processed = 0 ORDER BY created_at ASC"
+            "SELECT * FROM reports WHERE processed = FALSE ORDER BY created_at ASC"
         ).fetchall()
     finally:
         conn.close()
@@ -125,9 +125,9 @@ def parse_report(
         conn.execute(
             """UPDATE reports SET
                location_text = %s, lat = %s, lng = %s, incident_type = %s,
-               people_mentioned = %s, has_children = %s, language = %s, processed = 1
+               people_mentioned = %s, has_children = %s, language = %s, processed = TRUE
                WHERE id = %s""",
-            (location_text, lat, lng, incident_type, people_mentioned, has_children, language, report_id),
+            (location_text, lat, lng, incident_type, people_mentioned, bool(has_children), language, report_id),
         )
         conn.commit()
 
@@ -278,7 +278,7 @@ async def run_field_report_agent() -> dict[str, Any]:
     # Count how many were processed
     conn = get_connection()
     try:
-        count = conn.execute("SELECT COUNT(*) AS cnt FROM reports WHERE processed = 1").fetchone()["cnt"]
+        count = conn.execute("SELECT COUNT(*) AS cnt FROM reports WHERE processed = TRUE").fetchone()["cnt"]
     finally:
         conn.close()
 

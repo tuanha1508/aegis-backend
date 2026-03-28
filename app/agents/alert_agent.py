@@ -84,7 +84,7 @@ def get_active_incidents() -> dict:
     conn = get_connection()
     try:
         rows = conn.execute(
-            "SELECT * FROM incidents WHERE resolved = 0 ORDER BY severity_score DESC"
+            "SELECT * FROM incidents WHERE resolved = FALSE ORDER BY severity_score DESC"
         ).fetchall()
     finally:
         conn.close()
@@ -122,7 +122,7 @@ def save_alert(
     try:
         row = conn.execute(
             """INSERT INTO alerts (phase, priority, neighborhood, title, message, message_es, channels, delivered)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, 1) RETURNING id""",
+               VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE) RETURNING id""",
             (phase, priority, neighborhood, title, message, message_es, channels),
         ).fetchone()
         conn.commit()

@@ -99,7 +99,7 @@ def get_incidents_needing_resources() -> dict:
     try:
         rows = conn.execute(
             """SELECT * FROM incidents
-               WHERE resolved = 0
+               WHERE resolved = FALSE
                ORDER BY severity_score DESC"""
         ).fetchall()
     finally:
