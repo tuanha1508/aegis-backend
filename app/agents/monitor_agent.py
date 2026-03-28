@@ -4,7 +4,7 @@ Monitor Agent — Pre-storm risk assessment for Tampa Bay neighborhoods.
 Uses Google ADK + Gemini Flash to analyze NOAA weather data and Tampa
 evacuation zones, then produces per-neighborhood flood risk scores and
 evacuation recommendations.  Results are persisted to the risk_assessments
-table in SQLite.
+table in PostgreSQL (Supabase).
 """
 
 from __future__ import annotations

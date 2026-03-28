@@ -3,7 +3,7 @@ Field Report Agent — Parses raw disaster reports into structured data.
 
 Uses Google ADK + Gemini to extract location, geocode using Tampa reference
 data, classify incident type, detect language, and count people mentioned.
-Results are persisted to the reports table in SQLite.
+Results are persisted to the reports table in PostgreSQL (Supabase).
 """
 
 from __future__ import annotations
