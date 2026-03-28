@@ -1,0 +1,62 @@
+[
+  {
+    "raw_text": "Flooding on Bay to Bay Blvd, water entering homes",
+    "source": "sms",
+    "sender_phone": "+18135551001",
+    "location_text": "Bay to Bay Blvd",
+    "lat": 27.912,
+    "lng": -82.493,
+    "incident_type": "flooding",
+    "people_mentioned": null,
+    "has_children": false,
+    "language": "en"
+  },
+  {
+    "raw_text": "Tree down on Dale Mabry blocking both lanes near Gandy",
+    "source": "sms",
+    "sender_phone": "+18135551002",
+    "location_text": "Dale Mabry and Gandy",
+    "lat": 27.891,
+    "lng": -82.507,
+    "incident_type": "road_blocked",
+    "people_mentioned": null,
+    "has_children": false,
+    "language": "en"
+  },
+  {
+    "raw_text": "Power out in all of Seminole Heights since 2am",
+    "source": "app",
+    "sender_phone": null,
+    "location_text": "Seminole Heights",
+    "lat": 27.9945,
+    "lng": -82.4572,
+    "incident_type": "power_outage",
+    "people_mentioned": null,
+    "has_children": false,
+    "language": "en"
+  },
+  {
+    "raw_text": "Family trapped on second floor, Henderson Blvd, 2 adults 2 children",
+    "source": "sms",
+    "sender_phone": "+18135551004",
+    "location_text": "Henderson Blvd",
+    "lat": 27.929,
+    "lng": -82.515,
+    "incident_type": "trapped_person",
+    "people_mentioned": 4,
+    "has_children": true,
+    "language": "en"
+  },
+  {
+    "raw_text": "Hillsborough High shelter needs more water and blankets",
+    "source": "app",
+    "sender_phone": null,
+    "location_text": "Hillsborough High School",
+    "lat": 27.9686,
+    "lng": -82.462,
+    "incident_type": "supply_needed",
+    "people_mentioned": null,
+    "has_children": false,
+    "language": "en"
+  }
+]

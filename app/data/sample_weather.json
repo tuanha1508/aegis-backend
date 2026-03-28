@@ -1,0 +1,27 @@
+{
+  "storm_name": "Hurricane Rafael",
+  "category": 2,
+  "max_wind_mph": 105,
+  "movement": "NE at 14 mph",
+  "pressure_mb": 965,
+  "current_lat": 26.8,
+  "current_lng": -83.5,
+  "landfall_eta": "2026-03-29T02:00:00",
+  "trajectory": [
+    {"lat": 26.2, "lng": -84.5, "time": "2026-03-28T06:00:00"},
+    {"lat": 26.5, "lng": -84.0, "time": "2026-03-28T12:00:00"},
+    {"lat": 26.8, "lng": -83.5, "time": "2026-03-28T18:00:00"},
+    {"lat": 27.3, "lng": -83.0, "time": "2026-03-29T00:00:00"},
+    {"lat": 27.9, "lng": -82.5, "time": "2026-03-29T02:00:00"}
+  ],
+  "warnings": [
+    "Hurricane Warning: Tampa Bay and surrounding areas",
+    "Storm Surge Warning: 6-10 ft above normal tide levels",
+    "Flash Flood Warning: Hillsborough, Pinellas, Manatee counties"
+  ],
+  "tide_data": {
+    "current_ft": 2.3,
+    "predicted_peak_ft": 8.7,
+    "peak_time": "2026-03-29T03:00:00"
+  }
+}

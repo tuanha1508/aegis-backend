@@ -1,0 +1,38 @@
+[
+  {
+    "name": "First Baptist Church of Tampa",
+    "type": "shelter",
+    "lat": 27.9506,
+    "lng": -82.4572,
+    "address": "302 W Kennedy Blvd, Tampa, FL 33606",
+    "capacity": 200,
+    "amenities": "hot_meals,medical_station,pet_friendly,charging"
+  },
+  {
+    "name": "USF Marshall Center",
+    "type": "shelter",
+    "lat": 28.0587,
+    "lng": -82.4137,
+    "address": "4103 USF Cedar Dr, Tampa, FL 33620",
+    "capacity": 350,
+    "amenities": "hot_meals,charging,wifi"
+  },
+  {
+    "name": "Hillsborough High School",
+    "type": "shelter",
+    "lat": 27.9686,
+    "lng": -82.4620,
+    "address": "5000 N Central Ave, Tampa, FL 33603",
+    "capacity": 150,
+    "amenities": "hot_meals,charging"
+  },
+  {
+    "name": "Tampa Convention Center",
+    "type": "shelter",
+    "lat": 27.9425,
+    "lng": -82.4584,
+    "address": "333 S Franklin St, Tampa, FL 33602",
+    "capacity": 500,
+    "amenities": "hot_meals,medical_station,charging,wifi,pet_friendly"
+  }
+]

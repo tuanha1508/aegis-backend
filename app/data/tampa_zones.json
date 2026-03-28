@@ -1,0 +1,82 @@
+[
+  {
+    "neighborhood": "Palma Ceia",
+    "zone": "A",
+    "lat": 27.9234,
+    "lng": -82.4968,
+    "flood_risk": 0.78,
+    "storm_surge_ft": 6.2,
+    "time_to_impact_hours": 18,
+    "recommendation": "evacuate"
+  },
+  {
+    "neighborhood": "Davis Islands",
+    "zone": "A",
+    "lat": 27.9210,
+    "lng": -82.4630,
+    "flood_risk": 0.85,
+    "storm_surge_ft": 7.5,
+    "time_to_impact_hours": 16,
+    "recommendation": "evacuate"
+  },
+  {
+    "neighborhood": "Channelside",
+    "zone": "A",
+    "lat": 27.9430,
+    "lng": -82.4490,
+    "flood_risk": 0.72,
+    "storm_surge_ft": 5.8,
+    "time_to_impact_hours": 18,
+    "recommendation": "evacuate"
+  },
+  {
+    "neighborhood": "South Tampa",
+    "zone": "A",
+    "lat": 27.9100,
+    "lng": -82.4900,
+    "flood_risk": 0.81,
+    "storm_surge_ft": 6.8,
+    "time_to_impact_hours": 17,
+    "recommendation": "evacuate"
+  },
+  {
+    "neighborhood": "Hyde Park",
+    "zone": "B",
+    "lat": 27.9400,
+    "lng": -82.4750,
+    "flood_risk": 0.55,
+    "storm_surge_ft": 3.5,
+    "time_to_impact_hours": 20,
+    "recommendation": "shelter_in_place"
+  },
+  {
+    "neighborhood": "Seminole Heights",
+    "zone": "C",
+    "lat": 27.9945,
+    "lng": -82.4572,
+    "flood_risk": 0.42,
+    "storm_surge_ft": 2.1,
+    "time_to_impact_hours": 22,
+    "recommendation": "shelter_in_place"
+  },
+  {
+    "neighborhood": "Temple Terrace",
+    "zone": "C",
+    "lat": 28.0350,
+    "lng": -82.3890,
+    "flood_risk": 0.30,
+    "storm_surge_ft": 1.5,
+    "time_to_impact_hours": 24,
+    "recommendation": "monitor"
+  },
+  {
+    "neighborhood": "Ybor City",
+    "zone": "B",
+    "lat": 27.9600,
+    "lng": -82.4370,
+    "flood_risk": 0.50,
+    "storm_surge_ft": 3.0,
+    "time_to_impact_hours": 20,
+    "recommendation": "shelter_in_place"
+  }
+]
