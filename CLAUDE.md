@@ -9,7 +9,6 @@ Aegis is a multi-agent disaster intelligence platform for Tampa Bay built for Ha
 - **Public GitHub repo** (this repo)
 - **Google Cloud ADK sponsor challenge** ($1,750) — must use Google ADK for multi-agent orchestration
 - **MLH Gemini API prize** — must use Gemini as the LLM
-- **MLH ElevenLabs prize** — must use ElevenLabs for voice alerts
 - **Code freeze: March 29, 2026 at 11:30 AM EDT**
 
 ## Tech Stack
@@ -20,7 +19,6 @@ Aegis is a multi-agent disaster intelligence platform for Tampa Bay built for Ha
 - FastAPI for REST API
 - SQLite for database (single file, zero config)
 - Twilio for SMS (incoming field reports + outgoing alerts)
-- ElevenLabs for voice alert generation
 
 ## Project Structure
 
@@ -28,7 +26,7 @@ Aegis is a multi-agent disaster intelligence platform for Tampa Bay built for Ha
 aegis-backend/
 ├── app/
 │   ├── main.py                  # FastAPI entry point, CORS, mount routers
-│   ├── config.py                # Env vars: GEMINI_API_KEY, TWILIO_*, ELEVENLABS_*
+│   ├── config.py                # Env vars: GEMINI_API_KEY, TWILIO_*
 │   │
 │   ├── api/                     # One file per resource
 │   │   ├── routes_phase.py      # GET /phase, POST /phase/advance
@@ -64,7 +62,6 @@ aegis-backend/
 │   │
 │   ├── services/
 │   │   ├── twilio_service.py    # send_sms(), handle incoming
-│   │   ├── elevenlabs_service.py    # generate_voice_alert()
 │   │   └── weather_service.py   # Fetch/load NOAA data
 │   │
 │   └── data/                    # Static seed data files
@@ -90,7 +87,7 @@ aegis-backend/
 ### 2. Alert Agent (Pre-Storm + Active Storm)
 - **Input:** Risk data from Monitor Agent OR incident data from Severity Agent
 - **Processing:** Uses Gemini to generate plain-language warnings, translates to Spanish
-- **Output:** Alert objects with priority (info/warning/critical/emergency), sends via Twilio SMS + ElevenLabs voice
+- **Output:** Alert objects with priority (info/warning/critical/emergency), sends via Twilio SMS
 - **Writes to:** `alerts` table
 
 ### 3. Field Report Agent (Active Storm)
@@ -346,7 +343,6 @@ GEMINI_API_KEY=your_gemini_api_key
 TWILIO_ACCOUNT_SID=your_twilio_sid
 TWILIO_AUTH_TOKEN=your_twilio_token
 TWILIO_PHONE_NUMBER=+1XXXXXXXXXX
-ELEVENLABS_API_KEY=your_elevenlabs_key
 DATABASE_URL=sqlite:///aegis.db
 ```
 
@@ -366,7 +362,7 @@ uvicorn app.main:app --reload --port 8000
 1. **First:** FastAPI setup + SQLite schema + seed data (Person A)
 2. **Second:** Monitor Agent + Alert Agent (Person A), Field Report Agent + Severity Agent (Person B)
 3. **Third:** Resource Agent + Reunification Agent (Person B)
-4. **Fourth:** Twilio webhook + ElevenLabs voice (Person B)
+4. **Fourth:** Twilio webhook (Person B)
 5. **Last:** Polish, edge cases, demo hardening
 
 ## Frontend Repo

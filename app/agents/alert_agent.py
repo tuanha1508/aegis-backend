@@ -3,7 +3,7 @@ Alert Agent — Generates multilingual disaster alerts for Tampa Bay.
 
 Takes risk data from Monitor Agent OR incident data from Severity Agent,
 uses Gemini to craft plain-language warnings in English and Spanish,
-determines priority level, and delivers via Twilio SMS + ElevenLabs voice.
+determines priority level, and delivers via Twilio SMS.
 """
 
 import logging
@@ -20,7 +20,6 @@ from google.genai import types
 from app.config import GEMINI_API_KEY, GROQ_API_KEY
 from app.db.database import get_connection
 from app.services.twilio_service import send_sms
-from app.services.elevenlabs_service import generate_voice_alert
 
 logger = logging.getLogger(__name__)
 
@@ -146,17 +145,6 @@ def send_sms_alert(phone_number: str, message: str) -> dict:
     return result
 
 
-def generate_voice_alert_tool(text: str) -> dict:
-    """Generate a voice version of an alert using ElevenLabs text-to-speech.
-
-    Args:
-        text: The alert text to convert to speech. Keep it clear and concise.
-
-    Returns status and audio data (base64-encoded MP3) if configured.
-    """
-    result = generate_voice_alert(text=text)
-    return result
-
 
 # ---------------------------------------------------------------------------
 # Agent Definition
@@ -174,7 +162,7 @@ for Tampa Bay residents. You operate across all disaster phases.
 3. Call `get_active_incidents()` to see any ongoing emergencies.
 4. Based on the data, generate alerts following the rules below.
 5. Save EACH alert using `save_alert()`.
-6. If there is critical or emergency-level data, also attempt voice generation with `generate_voice_alert_tool()`.
+
 
 ## Alert Priority Rules
 
@@ -238,7 +226,6 @@ def _build_alert_agent() -> Agent:
             get_active_incidents,
             save_alert,
             send_sms_alert,
-            generate_voice_alert_tool,
         ],
     )
 

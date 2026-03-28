@@ -5,7 +5,7 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          USERS                                      │
-│  Browser (Dashboard)    SMS (Twilio)    Voice (ElevenLabs)          │
+│  Browser (Dashboard)    SMS (Twilio)                                │
 └──────────┬──────────────────┬──────────────────┬────────────────────┘
            │                  │                  │
            ▼                  ▼                  ▼
@@ -125,7 +125,6 @@ aegis-backend/
 │   ├── services/
 │   │   ├── __init__.py
 │   │   ├── twilio_service.py    # Send/receive SMS
-│   │   ├── elevenlabs_service.py    # Generate voice alerts
 │   │   └── weather_service.py   # NOAA data fetching
 │   │
 │   └── data/
@@ -220,7 +219,6 @@ Output:
 Delivery:
   - App: returned via API to frontend
   - SMS: sent via Twilio to registered numbers
-  - Voice: generated via ElevenLabs, played via Twilio call
 ```
 
 #### 3. Field Report Agent (Active Storm)
@@ -950,7 +948,6 @@ Monitor Agent ──→ risk_assessments table
     ▼
 Alert Agent ──→ alerts table ──→ Frontend alert feed
     │                            + Twilio SMS
-    │                            + ElevenLabs voice
     ▼
 Frontend map shows risk zones colored by flood_risk score
 ```
@@ -1021,7 +1018,6 @@ Tasks:
   3. Reunification Agent implementation
   4. Resource Agent implementation
   5. Twilio webhook + SMS service
-  6. ElevenLabs voice service
 ```
 
 ### Person C: Frontend Core + Map
