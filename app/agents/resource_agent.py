@@ -92,12 +92,14 @@ def get_incidents_needing_resources() -> dict:
     which resources to deploy where.
     """
     conn = get_connection()
-    rows = conn.execute(
-        """SELECT * FROM incidents
-           WHERE resolved = false
-           ORDER BY severity_score DESC NULLS LAST"""
-    ).fetchall()
-    conn.close()
+    try:
+        rows = conn.execute(
+            """SELECT * FROM incidents
+               WHERE resolved = false
+               ORDER BY severity_score DESC NULLS LAST"""
+        ).fetchall()
+    finally:
+        conn.close()
 
     if not rows:
         return {"status": "no_incidents", "incidents": []}

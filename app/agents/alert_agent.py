@@ -78,11 +78,13 @@ def get_active_incidents() -> dict:
     generate alerts about ongoing emergencies.
     """
     conn = get_connection()
-    rows = conn.execute(
-        """SELECT * FROM incidents WHERE resolved = false
-           ORDER BY severity_score DESC NULLS LAST"""
-    ).fetchall()
-    conn.close()
+    try:
+        rows = conn.execute(
+            """SELECT * FROM incidents WHERE resolved = false
+               ORDER BY severity_score DESC NULLS LAST"""
+        ).fetchall()
+    finally:
+        conn.close()
 
     if not rows:
         return {"status": "no_incidents", "incidents": []}
@@ -114,14 +116,16 @@ def save_alert(
     Returns the saved alert ID.
     """
     conn = get_connection()
-    row = conn.execute(
-        """INSERT INTO alerts (phase, priority, neighborhood, title, message, message_es, channels, delivered)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, true) RETURNING id""",
-        (phase, priority, neighborhood, title, message, message_es, channels),
-    ).fetchone()
-    conn.commit()
-    alert_id = row["id"] if row else None
-    conn.close()
+    try:
+        row = conn.execute(
+            """INSERT INTO alerts (phase, priority, neighborhood, title, message, message_es, channels, delivered)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE) RETURNING id""",
+            (phase, priority, neighborhood, title, message, message_es, channels),
+        ).fetchone()
+        conn.commit()
+        alert_id = row["id"] if row else None
+    finally:
+        conn.close()
 
     return {"status": "saved", "alert_id": alert_id}
 

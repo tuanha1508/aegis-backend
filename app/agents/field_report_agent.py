@@ -41,10 +41,12 @@ def get_unprocessed_reports() -> dict:
               source, sender_phone, and created_at.
     """
     conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM reports WHERE processed = false ORDER BY created_at ASC"
-    ).fetchall()
-    conn.close()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM reports WHERE processed = false ORDER BY created_at ASC"
+        ).fetchall()
+    finally:
+        conn.close()
 
     if not rows:
         return {"status": "no_data", "reports": []}
@@ -119,26 +121,28 @@ def parse_report(
         dict: Status and the updated report data.
     """
     conn = get_connection()
-    conn.execute(
-        """UPDATE reports SET
-           location_text = %s, lat = %s, lng = %s, incident_type = %s,
-           people_mentioned = %s, has_children = %s, language = %s, processed = true
-           WHERE id = %s""",
-        (
-            location_text,
-            lat,
-            lng,
-            incident_type,
-            people_mentioned,
-            bool(has_children),
-            language,
-            report_id,
-        ),
-    )
-    conn.commit()
+    try:
+        conn.execute(
+            """UPDATE reports SET
+               location_text = %s, lat = %s, lng = %s, incident_type = %s,
+               people_mentioned = %s, has_children = %s, language = %s, processed = TRUE
+               WHERE id = %s""",
+            (
+                location_text,
+                lat,
+                lng,
+                incident_type,
+                people_mentioned,
+                bool(has_children),
+                language,
+                report_id,
+            ),
+        )
+        conn.commit()
 
-    row = conn.execute("SELECT * FROM reports WHERE id = %s", (report_id,)).fetchone()
-    conn.close()
+        row = conn.execute("SELECT * FROM reports WHERE id = %s", (report_id,)).fetchone()
+    finally:
+        conn.close()
 
     if row:
         return {"status": "success", "report": dict(row)}
@@ -282,8 +286,12 @@ async def run_field_report_agent() -> dict[str, Any]:
 
     # Count how many were processed
     conn = get_connection()
-    count = conn.execute("SELECT COUNT(*) FROM reports WHERE processed = true").fetchone()[0]
-    conn.close()
+    try:
+        count = conn.execute(
+            "SELECT COUNT(*) AS cnt FROM reports WHERE processed = TRUE"
+        ).fetchone()["cnt"]
+    finally:
+        conn.close()
 
     return {
         "status": "success",

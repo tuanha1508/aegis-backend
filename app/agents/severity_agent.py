@@ -38,12 +38,14 @@ def get_processed_reports() -> dict:
               location, incident type, people count, and coordinates.
     """
     conn = get_connection()
-    rows = conn.execute(
-        """SELECT * FROM reports
-           WHERE processed = true
-           ORDER BY created_at ASC"""
-    ).fetchall()
-    conn.close()
+    try:
+        rows = conn.execute(
+            """SELECT * FROM reports
+               WHERE processed = true
+               ORDER BY created_at ASC"""
+        ).fetchall()
+    finally:
+        conn.close()
 
     if not rows:
         return {"status": "no_data", "reports": []}
@@ -61,11 +63,13 @@ def get_existing_incidents() -> dict:
         dict: List of current incidents with their types, locations, and severity.
     """
     conn = get_connection()
-    rows = conn.execute(
-        """SELECT * FROM incidents WHERE resolved = false
-           ORDER BY severity_score DESC NULLS LAST"""
-    ).fetchall()
-    conn.close()
+    try:
+        rows = conn.execute(
+            """SELECT * FROM incidents WHERE resolved = false
+               ORDER BY severity_score DESC NULLS LAST"""
+        ).fetchall()
+    finally:
+        conn.close()
 
     if not rows:
         return {"status": "no_incidents", "incidents": []}
