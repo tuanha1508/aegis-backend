@@ -13,6 +13,8 @@ from app.api import (
     routes_reunification,
     routes_recovery,
     routes_sms,
+    routes_assignments,
+    routes_audit,
 )
 from app.db.database import init_db
 
@@ -47,6 +49,8 @@ app.include_router(routes_resources.router, prefix=PREFIX)
 app.include_router(routes_reunification.router, prefix=PREFIX)
 app.include_router(routes_recovery.router, prefix=PREFIX)
 app.include_router(routes_sms.router, prefix=PREFIX)
+app.include_router(routes_assignments.router, prefix=PREFIX)
+app.include_router(routes_audit.router, prefix=PREFIX)
 
 
 @app.get("/")
