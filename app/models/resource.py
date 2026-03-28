@@ -11,7 +11,7 @@ class ResourceResponse(BaseModel):
     lng: float
     address: Optional[str] = None
     capacity: Optional[int] = None
-    current_occupancy: int = 0
+    current_occupancy: Optional[int] = None
     amenities: Optional[str] = None
     status: str = "open"
     notes: Optional[str] = None

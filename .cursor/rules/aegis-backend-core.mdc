@@ -1,0 +1,21 @@
+---
+description: Aegis backend — product context, stack, hackathon constraints, phases
+globs: "**/*"
+alwaysApply: false
+---
+
+# Aegis backend — core context
+
+**What it is:** Multi-agent disaster intelligence for Tampa Bay (HackUSF 2026). Backend runs six Google ADK agents, exposes REST via FastAPI, persists in SQLite.
+
+**Sponsor / prize alignment:** Use **Google ADK** for multi-agent orchestration, **Gemini** (e.g. Flash) as the LLM for agents, **ElevenLabs** for voice alerts. **Code freeze:** March 29, 2026, 11:30 AM EDT.
+
+**Stack:** Python 3.11+, Google ADK, Gemini (Vertex AI or AI Studio), FastAPI, SQLite, Twilio (SMS in/out), ElevenLabs (voice).
+
+**Phase model:** Global phase drives which agents and UI matter: `pre_storm` → `active_storm` → `post_storm`. Transitions can be manual (operator) or automatic (e.g. weather thresholds). Keep phase values and semantics consistent with `phase` table and API.
+
+**Integration:** Frontend (separate repo / Vercel) calls this API; enable **CORS** for local dev (`localhost:3000`) and production frontend origin. Response JSON must match **Pydantic models** in `app/models/`.
+
+**Env (see `.env.example` / CLAUDE.md):** `GEMINI_API_KEY`, `TWILIO_*`, `ELEVENLABS_API_KEY`, `DATABASE_URL` (e.g. `sqlite:///aegis.db`).
+
+**Run (local):** `uvicorn app.main:app --reload --port 8000` from the repo root after venv, `pip install -r requirements.txt`, `.env`, and seed if applicable (`python -m app.db.seed` per CLAUDE.md).
