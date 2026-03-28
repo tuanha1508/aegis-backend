@@ -1,8 +1,5 @@
-from uuid import uuid4
-
 from fastapi import APIRouter
 
-from app.db.audit import insert_audit_log
 from app.db.database import get_connection
 from app.models.person import (
     MissingPersonCreate,
@@ -104,27 +101,8 @@ async def get_matches():
 
 @router.post("/reunification/match")
 async def trigger_matching():
-    run_id = uuid4()
-    conn = get_connection()
-    try:
-        row = conn.execute("SELECT current_phase FROM phase WHERE id = 1").fetchone()
-        phase = row["current_phase"] if row else None
-        insert_audit_log(
-            conn,
-            agent_name="reunification_agent",
-            run_id=run_id,
-            phase=phase,
-            input_payload={"trigger": "POST /reunification/match"},
-            output_payload={
-                "status": "pending",
-                "message": "Reunification Agent not yet connected",
-            },
-        )
-        conn.commit()
-    finally:
-        conn.close()
-    return {
-        "status": "pending",
-        "message": "Reunification Agent not yet connected",
-        "run_id": str(run_id),
-    }
+    """Trigger the Reunification Agent to match missing persons with found persons."""
+    from app.agents.reunification_agent import run_reunification_agent
+
+    result = await run_reunification_agent()
+    return result

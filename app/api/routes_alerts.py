@@ -1,12 +1,15 @@
 from typing import Optional
-from uuid import uuid4
 
 from fastapi import APIRouter, Query
+from pydantic import BaseModel
 
-from app.db.audit import insert_audit_log
 from app.db.database import get_connection
 
 router = APIRouter(tags=["alerts"])
+
+
+class AlertGenerateRequest(BaseModel):
+    context: Optional[str] = None
 
 
 @router.get("/alerts")
@@ -28,28 +31,10 @@ async def get_alerts(priority: Optional[str] = Query(None)):
 
 
 @router.post("/alerts/generate")
-async def generate_alerts():
-    run_id = uuid4()
-    conn = get_connection()
-    try:
-        row = conn.execute("SELECT current_phase FROM phase WHERE id = 1").fetchone()
-        phase = row["current_phase"] if row else None
-        insert_audit_log(
-            conn,
-            agent_name="alert_agent",
-            run_id=run_id,
-            phase=phase,
-            input_payload={"trigger": "POST /alerts/generate"},
-            output_payload={
-                "status": "pending",
-                "message": "Alert Agent not yet connected",
-            },
-        )
-        conn.commit()
-    finally:
-        conn.close()
-    return {
-        "status": "pending",
-        "message": "Alert Agent not yet connected",
-        "run_id": str(run_id),
-    }
+async def generate_alerts(body: Optional[AlertGenerateRequest] = None):
+    """Trigger the Alert Agent to analyze risks/incidents and generate alerts."""
+    from app.agents.alert_agent import run_alert_agent
+
+    context = body.context if body else None
+    result = await run_alert_agent(context=context)
+    return result
