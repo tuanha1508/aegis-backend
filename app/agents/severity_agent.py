@@ -88,10 +88,12 @@ def get_resources() -> dict:
         dict: List of resources with their type, location, capacity, and status.
     """
     conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM resources WHERE status = 'open' ORDER BY type"
-    ).fetchall()
-    conn.close()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM resources WHERE status = 'open' ORDER BY type"
+        ).fetchall()
+    finally:
+        conn.close()
 
     if not rows:
         return {"status": "no_resources", "resources": []}

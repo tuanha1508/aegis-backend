@@ -79,3 +79,35 @@ async def simulation_status():
         "scenario": get_scenario(),
         "stats": stats,
     }
+
+
+# ── Demo data stream (found persons + resource updates) ──────
+
+
+@router.post("/simulation/demo-stream")
+async def start_demo_stream():
+    """Start a background stream that injects found persons and resource
+    updates every 3-5 seconds, simulating real-world data arriving.
+
+    The frontend's existing polling on /resources and /reunification/found
+    will pick up new rows automatically.
+    """
+    from app.services.demo_stream import start_stream
+
+    return start_stream()
+
+
+@router.get("/simulation/demo-stream")
+async def demo_stream_status():
+    """Check how many items the demo stream has injected so far."""
+    from app.services.demo_stream import stream_status
+
+    return stream_status()
+
+
+@router.post("/simulation/demo-stream/stop")
+async def stop_demo_stream():
+    """Stop the demo data stream."""
+    from app.services.demo_stream import stop_stream
+
+    return stop_stream()

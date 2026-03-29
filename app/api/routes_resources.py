@@ -1,10 +1,12 @@
 import json
 import math
+import re
 from typing import Optional
 from uuid import uuid4
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 from psycopg import sql
 
 from app.agents.resource_agent import run_resource_sync
@@ -131,6 +133,104 @@ async def get_nearest_resource(
         nearest = min(rows, key=lambda r: haversine(lat, lng, r["lat"], r["lng"]))
         dist = haversine(lat, lng, nearest["lat"], nearest["lng"])
         return {"resource": dict(nearest), "distance_miles": round(dist, 2)}
+    finally:
+        conn.close()
+
+
+class ResourceTextReport(BaseModel):
+    text: str
+
+
+def _normalize_for_match(name: str) -> str:
+    s = name.lower()
+    s = re.sub(r"[^a-z0-9\s]", " ", s)
+    return " ".join(s.split())
+
+
+def _fuzzy_match_resource(conn, parsed_name: str) -> dict | None:
+    """Find the best existing resource matching the parsed name."""
+    rows = conn.execute("SELECT * FROM resources").fetchall()
+    norm = _normalize_for_match(parsed_name)
+    if len(norm) < 3:
+        return None
+    for row in rows:
+        row_norm = _normalize_for_match(row["name"])
+        if norm in row_norm or row_norm in norm:
+            return row
+        words_a, words_b = set(norm.split()), set(row_norm.split())
+        if words_a and words_b and len(words_a & words_b) >= min(2, min(len(words_a), len(words_b))):
+            return row
+    return None
+
+
+@router.post("/resources/report-text")
+async def report_resource_text(body: ResourceTextReport):
+    """Parse free-form text into a resource update using Gemini.
+
+    Example inputs:
+      - "Tampa Convention Center has room for 200 more people"
+      - "Middleton High shelter is at capacity, turning people away"
+      - "New supply point opened at Temple Terrace Community Center with water and food"
+    """
+    if not body.text.strip():
+        raise HTTPException(status_code=400, detail="text is required")
+
+    from app.services.text_parser import parse_resource_text
+
+    parsed = parse_resource_text(body.text)
+
+    conn = get_connection()
+    try:
+        existing = _fuzzy_match_resource(conn, parsed.get("name", ""))
+
+        if existing and not parsed.get("is_new"):
+            set_parts: list = []
+            params: list = []
+            if parsed.get("status"):
+                set_parts.append(sql.SQL("status = {}").format(sql.Placeholder()))
+                params.append(parsed["status"])
+            if parsed.get("current_occupancy") is not None:
+                set_parts.append(sql.SQL("current_occupancy = {}").format(sql.Placeholder()))
+                params.append(parsed["current_occupancy"])
+            if parsed.get("amenities"):
+                set_parts.append(sql.SQL("amenities = {}").format(sql.Placeholder()))
+                params.append(parsed["amenities"])
+            if parsed.get("capacity") is not None:
+                set_parts.append(sql.SQL("capacity = {}").format(sql.Placeholder()))
+                params.append(parsed["capacity"])
+
+            if set_parts:
+                set_parts.append(sql.SQL("last_updated = NOW()"))
+                query = sql.SQL("UPDATE resources SET {} WHERE id = {}").format(
+                    sql.SQL(", ").join(set_parts),
+                    sql.Placeholder(),
+                )
+                params.append(existing["id"])
+                conn.execute(query, params)
+
+            conn.commit()
+            row = conn.execute(
+                "SELECT * FROM resources WHERE id = %s", (existing["id"],)
+            ).fetchone()
+            return {"status": "updated", "parsed": parsed, "record": dict(row)}
+        else:
+            row = conn.execute(
+                """INSERT INTO resources
+                   (type, name, lat, lng, capacity, current_occupancy, amenities, status)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                (
+                    parsed.get("type", "shelter"),
+                    parsed.get("name", "Unknown"),
+                    parsed.get("lat", 27.95),
+                    parsed.get("lng", -82.46),
+                    parsed.get("capacity"),
+                    parsed.get("current_occupancy"),
+                    parsed.get("amenities"),
+                    parsed.get("status", "open"),
+                ),
+            ).fetchone()
+            conn.commit()
+            return {"status": "created", "parsed": parsed, "record": dict(row)}
     finally:
         conn.close()
 

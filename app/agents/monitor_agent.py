@@ -230,10 +230,12 @@ async def run_monitor_agent() -> dict[str, Any]:
 
     # Fetch the saved assessments from DB
     conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM risk_assessments ORDER BY flood_risk DESC"
-    ).fetchall()
-    conn.close()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM risk_assessments ORDER BY flood_risk DESC"
+        ).fetchall()
+    finally:
+        conn.close()
 
     assessments = [dict(r) for r in rows]
 
