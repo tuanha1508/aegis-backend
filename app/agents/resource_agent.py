@@ -18,7 +18,7 @@ from app.services.resource_discovery_service import (
     discover_candidates,
 )
 
-_GEMINI_MODEL = "gemini-2.0-flash"
+_GEMINI_MODEL = "gemini-2.5-flash"
 
 
 def haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:

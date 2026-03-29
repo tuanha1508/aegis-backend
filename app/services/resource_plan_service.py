@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 _MILES_PER_M = 1 / 1609.344
 _TOP_PER_TYPE = 5
-_GEMINI_MODEL = "gemini-2.0-flash"
+_GEMINI_MODEL = "gemini-2.5-flash"
 
 
 def _distance_miles(
