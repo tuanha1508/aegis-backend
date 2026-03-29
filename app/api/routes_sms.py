@@ -104,6 +104,13 @@ async def sms_chat(body: SmsChatRequest):
         report_id, body.message, user_lat=body.lat, user_lng=body.lng
     )
 
+    # Auto-cascade: trigger severity + alert pipeline in background
+    # Don't block the user response — run async
+    if result.get("status") == "success":
+        from app.services.agent_pipeline import auto_cascade_report
+        import asyncio
+        asyncio.create_task(auto_cascade_report(report_id))
+
     return {
         "status": result.get("status", "error"),
         "reply": result.get("reply", "Unable to process your report at this time."),

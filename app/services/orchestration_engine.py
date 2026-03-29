@@ -82,33 +82,50 @@ def collect_signals() -> dict[str, Any]:
 def evaluate_mode(signals: dict) -> str:
     """Determine operational mode from signals.
 
-    Uses the current phase + risk levels to decide mode.
+    Uses the current phase + risk levels + weather to decide mode.
     """
     phase = signals["current_phase"]
     max_risk = signals["max_flood_risk"]
 
+    # Respect explicit phase settings
     if phase == "active_storm":
         return "active_storm"
     if phase == "post_storm":
         return "post_storm"
 
-    # pre_storm: check if there's actually a storm
+    # pre_storm: check weather signals for auto-detection
+    try:
+        from app.services.weather_service import get_weather_data
+        weather = get_weather_data()
+        category = weather.get("category", 0)
+
+        # Cat 2+ storm with high risk → active storm conditions
+        if category >= 2 and max_risk >= 0.7:
+            return "active_storm"
+        # Any categorized storm → storm watch
+        if category >= 1 or max_risk >= 0.6:
+            return "storm_watch"
+    except Exception:
+        pass
+
     if max_risk >= 0.6:
         return "storm_watch"
     return "idle"
 
 
 def evaluate_phase_transition(mode: str, signals: dict) -> str | None:
-    """Decide if a phase transition is needed. Returns new phase or None."""
+    """Decide if a phase transition is needed. Returns new phase or None.
+
+    Only transitions forward (pre→active→post), never backward.
+    """
     current = signals["current_phase"]
 
-    if mode == "active_storm" and current != "active_storm":
+    # Forward transitions only
+    if current == "pre_storm" and mode == "active_storm":
         return "active_storm"
-    if mode == "post_storm" and current != "post_storm":
+    if current == "active_storm" and mode == "post_storm":
         return "post_storm"
-    if mode in ("storm_watch", "idle") and current not in ("pre_storm",):
-        # Don't auto-revert to pre_storm
-        pass
+
     return None
 
 

@@ -54,8 +54,8 @@ async def lifespan(app: FastAPI):
     finally:
         conn.close()
 
-    # Start background scheduler if AUTO_ORCHESTRATE is enabled
-    if os.getenv("AUTO_ORCHESTRATE", "").lower() in ("1", "true", "yes"):
+    # Start background scheduler (disable with AUTO_ORCHESTRATE=false)
+    if os.getenv("AUTO_ORCHESTRATE", "true").lower() not in ("0", "false", "no"):
         from app.services.orchestration_engine import start_scheduler
         start_scheduler()
 

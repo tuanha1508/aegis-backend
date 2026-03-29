@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
@@ -41,9 +42,15 @@ async def advance_phase():
         )
         conn.commit()
         row = conn.execute("SELECT * FROM phase WHERE id = 1").fetchone()
-        return dict(row)
+        result = dict(row)
     finally:
         conn.close()
+
+    # Auto-cascade: trigger appropriate agents for new phase
+    from app.services.agent_pipeline import auto_cascade_phase_change
+    asyncio.create_task(auto_cascade_phase_change(next_phase))
+
+    return result
 
 
 @router.post("/phase/set", response_model=PhaseResponse)
@@ -60,9 +67,15 @@ async def set_phase(request: PhaseSetRequest):
         )
         conn.commit()
         row = conn.execute("SELECT * FROM phase WHERE id = 1").fetchone()
-        return dict(row)
+        result = dict(row)
     finally:
         conn.close()
+
+    # Auto-cascade: trigger appropriate agents for new phase
+    from app.services.agent_pipeline import auto_cascade_phase_change
+    asyncio.create_task(auto_cascade_phase_change(request.phase))
+
+    return result
 
 
 @router.post("/phase/orchestrate")
