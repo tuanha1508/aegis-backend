@@ -231,7 +231,7 @@ with recommended emergency response actions.
 
 
 def _get_model():
-    """Pick the best available model — Groq if key exists, else Gemini."""
+    """Pick the best available model — Groq for speed, Gemini as fallback."""
     if GROQ_API_KEY:
         return LiteLlm(model="groq/llama-3.3-70b-versatile")
     return "gemini-2.5-flash"

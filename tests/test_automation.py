@@ -69,15 +69,15 @@ async def run_tests():
         })).json()
         check("is_report=True", r.get("is_report") is True)
         check("report parsed", r.get("report") is not None)
-        report = r.get("report", {})
+        report = r.get("report") or {}
         check("incident_type=trapped_person", report.get("incident_type") == "trapped_person")
         check("has GPS coords", report.get("lat") is not None and report.get("lng") is not None)
         check("has neighborhood", report.get("neighborhood") is not None)
         check("processed=True", report.get("processed") is True)
 
         # Wait for background cascade
-        print("  ... waiting 20s for auto-cascade (severity → alert) ...")
-        await asyncio.sleep(20)
+        print("  ... waiting 50s for auto-cascade (severity → alert) ...")
+        await asyncio.sleep(50)
 
         incidents_after = (await c.get("/incidents")).json()
         alerts_after = (await c.get("/alerts")).json()
@@ -129,8 +129,8 @@ async def run_tests():
         check("phase=active_storm", r.get("current_phase") == "active_storm")
 
         # Wait for auto-cascade
-        print("  ... waiting 25s for phase cascade agents ...")
-        await asyncio.sleep(25)
+        print("  ... waiting 40s for phase cascade agents ...")
+        await asyncio.sleep(40)
 
         incidents_phase = (await c.get("/incidents")).json()
         alerts_phase = (await c.get("/alerts")).json()
@@ -147,8 +147,8 @@ async def run_tests():
         r = (await c.post("/phase/advance")).json()
         check("phase=post_storm", r.get("current_phase") == "post_storm")
 
-        print("  ... waiting 20s for reunification cascade ...")
-        await asyncio.sleep(20)
+        print("  ... waiting 35s for reunification cascade ...")
+        await asyncio.sleep(35)
 
         matches_after = (await c.get("/reunification/matches")).json()
         check("auto-reunification: matches found",

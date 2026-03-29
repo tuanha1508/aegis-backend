@@ -66,7 +66,21 @@ async def auto_cascade_report(report_id: int) -> dict[str, Any]:
     if is_urgent or processed >= BATCH_SEVERITY_THRESHOLD:
         try:
             from app.agents.severity_agent import run_severity_agent
-            severity_result = await run_severity_agent()
+
+            # Retry up to 2 times on LLM tool-call failures
+            severity_result = None
+            for attempt in range(2):
+                try:
+                    severity_result = await run_severity_agent()
+                    break
+                except Exception:
+                    if attempt == 0:
+                        logger.warning("Severity agent retry after tool-call failure")
+                        continue
+                    raise
+
+            if severity_result is None:
+                severity_result = {}
             actions.append(f"severity_agent: {severity_result.get('incidents_count', 0)} incidents")
 
             # Check if any new critical incidents → auto-alert
