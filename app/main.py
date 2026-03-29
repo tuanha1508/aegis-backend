@@ -1,9 +1,24 @@
+import json as _json
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+
+class _SafeEncoder(_json.JSONEncoder):
+    """JSON encoder that handles datetime objects from psycopg."""
+    def default(self, obj):
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        return super().default(obj)
+
+
+class SafeJSONResponse(JSONResponse):
+    def render(self, content) -> bytes:
+        return _json.dumps(content, cls=_SafeEncoder, ensure_ascii=False).encode("utf-8")
 
 from app.api import (
     routes_phase,
@@ -55,6 +70,7 @@ app = FastAPI(
     title="Aegis",
     description="Multi-agent disaster intelligence for Tampa Bay",
     lifespan=lifespan,
+    default_response_class=SafeJSONResponse,
 )
 
 app.add_middleware(

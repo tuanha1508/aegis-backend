@@ -298,17 +298,24 @@ async def run_alert_agent(context: str | None = None) -> dict:
             "alerts_generated": 0,
         }
 
-    # Fetch alerts that were just created (last 30 seconds)
+    # Fetch alerts that were just created
     conn = get_connection()
-    rows = conn.execute(
-        """SELECT id, phase, priority, neighborhood, title, channels, created_at
-           FROM alerts
-           ORDER BY created_at DESC
-           LIMIT 20"""
-    ).fetchall()
-    conn.close()
+    try:
+        rows = conn.execute(
+            """SELECT id, phase, priority, neighborhood, title, channels, created_at
+               FROM alerts
+               ORDER BY created_at DESC
+               LIMIT 20"""
+        ).fetchall()
+    finally:
+        conn.close()
 
-    recent_alerts = [dict(r) for r in rows]
+    recent_alerts = []
+    for r in rows:
+        d = dict(r)
+        if d.get("created_at"):
+            d["created_at"] = str(d["created_at"])
+        recent_alerts.append(d)
 
     return {
         "status": "success",
