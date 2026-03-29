@@ -232,6 +232,99 @@ async def run_tests():
         check("nearest shelter found", r.get("resource") is not None)
         check("distance calculated", r.get("distance_miles") is not None)
 
+        # ── Test 13: A2A Agent Card Discovery ──
+        print("\n━━━ TEST 13: A2A Agent Card Discovery ━━━")
+
+    # A2A endpoints are at root, not under /api/v1
+    async with httpx.AsyncClient(base_url="http://localhost:8000", timeout=TIMEOUT) as c2:
+        r = (await c2.get("/.well-known/agent.json")).json()
+        check("agent card has name", r.get("name") == "Aegis Disaster Intelligence")
+        check("agent card has version", r.get("version") == "1.0.0")
+        check("agent card has protocol", r.get("protocolVersion") == "0.2.6")
+        check("agent card has provider", r.get("provider", {}).get("organization") is not None)
+        check("agent card has 7 skills", len(r.get("skills", [])) == 7)
+
+        skill_ids = [s["id"] for s in r.get("skills", [])]
+        for expected in ["aegis-monitor", "aegis-alert", "aegis-field-report",
+                         "aegis-severity", "aegis-resource", "aegis-reunification",
+                         "aegis-orchestrator"]:
+            check(f"skill '{expected}' present", expected in skill_ids)
+
+        check("skills have tags", all(len(s.get("tags", [])) > 0 for s in r.get("skills", [])))
+        check("skills have examples", all(len(s.get("examples", [])) > 0 for s in r.get("skills", [])))
+        check("has supportedInterfaces", len(r.get("supportedInterfaces", [])) > 0)
+
+        # Also check alternate path
+        r2 = await c2.get("/.well-known/agent-card.json")
+        check("alternate path works", r2.status_code == 200)
+
+    async with httpx.AsyncClient(base_url=BASE, timeout=TIMEOUT) as c:
+
+        # ── Test 14: LoopAgent Verification (Self-Correction) ──
+        print("\n━━━ TEST 14: LoopAgent Verification (Self-Correction) ━━━")
+
+        # First ensure we have incidents to verify
+        incidents_before = (await c.get("/incidents")).json()
+        if len(incidents_before) == 0:
+            print("  (generating incidents first...)")
+            await c.post("/incidents/rank")
+            await asyncio.sleep(15)
+            incidents_before = (await c.get("/incidents")).json()
+
+        check("incidents exist for verification", len(incidents_before) > 0,
+              f"count={len(incidents_before)}")
+
+        # Count unverified before
+        unverified_before = sum(1 for i in incidents_before if not i.get("verified"))
+        print(f"  Unverified incidents before: {unverified_before}")
+
+        # Run verification LoopAgent
+        print("  ... running LoopAgent verification (may take 30-60s) ...")
+        r = (await c.post("/incidents/verify")).json()
+        check("verification status=success", r.get("status") == "success",
+              f"status={r.get('status')} error={r.get('error','')}")
+        check("verified_count > 0", r.get("verified_count", 0) > 0,
+              f"verified={r.get('verified_count')}")
+
+        # Check if any corrections were made
+        corrected = r.get("corrected_count", 0)
+        print(f"  Verified: {r.get('verified_count', 0)}  Corrected: {corrected}")
+        if corrected > 0:
+            print(f"  SELF-CORRECTION DEMONSTRATED: {corrected} incidents re-scored ✓")
+        check("verification has summary", len(r.get("summary", "")) > 0)
+
+        # Verify incidents are now marked verified in DB
+        incidents_after = (await c.get("/incidents")).json()
+        verified_after = sum(1 for i in incidents_after if i.get("verified"))
+        check("incidents marked verified in DB", verified_after > 0,
+              f"verified_in_db={verified_after}")
+
+        # ── Test 15: Recovery Brief Generation ──
+        print("\n━━━ TEST 15: Recovery Brief Generation ━━━")
+        print("  ... running Recovery Agent (may take 20-40s) ...")
+        r = (await c.post("/recovery/generate")).json()
+        check("recovery status=success", r.get("status") == "success",
+              f"status={r.get('status')} error={r.get('error','')}")
+        check("briefs generated", r.get("briefs_count", 0) > 0,
+              f"count={r.get('briefs_count')}")
+
+        if r.get("briefs"):
+            brief = r["briefs"][0]
+            check("brief has neighborhood", bool(brief.get("neighborhood")))
+            check("brief has power_status", bool(brief.get("power_status")))
+            check("brief has water_status", bool(brief.get("water_status")))
+            check("brief has roads_status", bool(brief.get("roads_status")))
+
+        # ── Test 16: Full Orchestration Tick ──
+        print("\n━━━ TEST 16: Orchestration Tick + Signals ━━━")
+        status = (await c.get("/orchestration/status")).json()
+        check("has operational_mode", status.get("operational_mode") is not None)
+        check("has signals.current_phase", status.get("signals", {}).get("current_phase") is not None)
+        check("has signals.max_flood_risk", status.get("signals", {}).get("max_flood_risk") is not None)
+
+        r = (await c.post("/orchestration/tick")).json()
+        check("tick executed", r.get("mode") is not None)
+
         # ── Summary ──
         print("\n" + "═" * 62)
         print(f"  RESULTS: {PASS} passed, {FAIL} failed, {PASS + FAIL} total")

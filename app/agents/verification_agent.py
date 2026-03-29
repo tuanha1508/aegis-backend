@@ -187,6 +187,7 @@ Explain WHY each correction was made.
 
 
 def _get_model():
+    """Pick the best available model."""
     if GROQ_API_KEY:
         return LiteLlm(model="groq/llama-3.3-70b-versatile")
     return "gemini-2.0-flash"
@@ -203,17 +204,26 @@ def _build_verification_agent() -> Agent:
     )
 
 
-def _build_verification_loop() -> LoopAgent:
-    """Create a LoopAgent that iterates verification until all incidents are checked."""
-    return LoopAgent(
-        name="verification_loop",
-        description=(
-            "Iteratively reviews severity scores, corrects errors, and "
-            "validates all incidents. Stops when check_all_verified() returns all_done=true."
-        ),
-        sub_agents=[_build_verification_agent()],
-        max_iterations=3,  # Safety limit — don't loop forever
-    )
+def _build_verification_loop():
+    """Create a verification agent.
+
+    Uses LoopAgent when Gemini is available (better tool calling),
+    falls back to a regular Agent with loop instructions for Groq.
+    """
+    inner = _build_verification_agent()
+    if not GROQ_API_KEY:
+        # Gemini: use proper LoopAgent
+        return LoopAgent(
+            name="verification_loop",
+            description=(
+                "Iteratively reviews severity scores, corrects errors, and "
+                "validates all incidents. Stops when check_all_verified() returns all_done=true."
+            ),
+            sub_agents=[inner],
+            max_iterations=3,
+        )
+    # Groq: use the inner agent directly (it loops via instruction)
+    return inner
 
 
 # ---------------------------------------------------------------------------
