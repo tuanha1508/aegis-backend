@@ -306,7 +306,7 @@ Output:
 #### 5. Resource Agent (Active → Post-Storm)
 
 ```
-Purpose: Track all available resources and match them to needs
+Purpose: Track all available resources and update database accordingly
 
 Input:
   - Pre-seeded shelter/resource database

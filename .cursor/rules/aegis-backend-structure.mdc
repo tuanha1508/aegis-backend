@@ -1,0 +1,33 @@
+---
+description: Aegis backend — package layout, agent roles, DB and seed data
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Aegis backend — structure and responsibilities
+
+**Layout (do not invent parallel trees without reason):**
+
+| Area | Location | Purpose |
+|------|----------|---------|
+| App entry | `app/main.py` | FastAPI app, CORS, mount routers |
+| Settings | `app/config.py` | Env-driven config |
+| HTTP | `app/api/routes_*.py` | One module per resource (`phase`, `monitor`, `alerts`, `reports`, `incidents`, `resources`, `reunification`, `recovery`, `sms`) |
+| Agents | `app/agents/` | ADK agents + `orchestrator.py` |
+| Schemas | `app/models/` | Pydantic request/response (phase, alert, report, incident, resource, person) |
+| Persistence | `app/db/database.py`, `seed.py` | SQLite init, connections, Tampa demo seed |
+| External APIs | `app/services/` | Twilio, ElevenLabs, weather/NOAA |
+| Static seed JSON | `app/data/` | Shelters, zones, sample weather/reports/persons |
+
+**Six agents (names and duties):**
+
+1. **monitor_agent** — Pre-storm: weather/zones → neighborhood risk; writes `risk_assessments`.
+2. **alert_agent** — Pre + active: risk/incidents → alerts (+ ES copy); Twilio SMS + ElevenLabs voice; writes `alerts`.
+3. **field_report_agent** — Active: raw SMS/app text → structured report; writes/updates `reports` (`processed`).
+4. **severity_agent** — Active: reports → ranked incidents; writes `incidents`.
+5. **resource_agent** — Active + post: shelters/supplies/routes; reads/writes `resources`.
+6. **reunification_agent** — Post: missing + found → matches; writes `matches`.
+
+**Database:** Schema in `ARCHITECTURE.md` / `CLAUDE.md` is authoritative (tables: `phase`, `risk_assessments`, `alerts`, `reports`, `incidents`, `resources`, `missing_persons`, `found_persons`, `matches`, `recovery_briefs`). JSON stored in TEXT columns should match documented shapes (e.g. `channels`, `report_ids`, `amenities`, `match_factors`).
+
+**Demo seed:** Prefer real Tampa coordinates and stories from ARCHITECTURE/CLAUDE (shelters, neighborhoods, Maria Garcia / James Wilson reunification, sample field reports).

@@ -48,23 +48,27 @@ def seed():
                 ),
             )
 
-        with open(DATA_DIR / "tampa_shelters.json") as f:
-            shelters = json.load(f)
-        for s in shelters:
-            conn.execute(
-                """INSERT INTO resources
-                   (type, name, lat, lng, address, capacity, amenities, status)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, 'open')""",
-                (
-                    s["type"],
-                    s["name"],
-                    s["lat"],
-                    s["lng"],
-                    s.get("address"),
-                    s["capacity"],
-                    s["amenities"],
-                ),
-            )
+        for fname in ("tampa_shelters.json", "tampa_supply_points.json"):
+            path = DATA_DIR / fname
+            if not path.is_file():
+                continue
+            with open(path) as f:
+                resources = json.load(f)
+            for s in resources:
+                conn.execute(
+                    """INSERT INTO resources
+                       (type, name, lat, lng, address, capacity, amenities, status)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, 'open')""",
+                    (
+                        s["type"],
+                        s["name"],
+                        s["lat"],
+                        s["lng"],
+                        s.get("address"),
+                        s.get("capacity"),
+                        s["amenities"],
+                    ),
+                )
 
         with open(DATA_DIR / "sample_reports.json") as f:
             reports = json.load(f)

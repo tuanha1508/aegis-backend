@@ -1,0 +1,67 @@
+---
+description: Aegis backend — REST API prefix, routes, and enums
+globs: app/api/**/*.py
+alwaysApply: false
+---
+
+# Aegis backend — API contract
+
+**Prefix:** All routes under **`/api/v1`**.
+
+**Phase**
+
+- `GET /phase` — current phase state
+- `POST /phase/advance` — next phase
+- `POST /phase/set` — body `{ "phase": "pre_storm" | "active_storm" | "post_storm" }`
+
+**Monitor (pre-storm)**
+
+- `GET /monitor/risk` — neighborhood risk assessments
+- `GET /monitor/weather` — storm / trajectory data
+
+**Alerts**
+
+- `GET /alerts` — optional `?priority=...`
+- `POST /alerts/generate` — run Alert Agent
+
+**Reports (active)**
+
+- `GET /reports` — list
+- `POST /reports` — e.g. `{ "text": "...", "source": "app" | "sms" | "partner" }`
+- `POST /reports/process` — Field Report Agent on unprocessed
+
+**Incidents (active)**
+
+- `GET /incidents` — optional `?severity=...`, sort by severity
+- `POST /incidents/rank` — Severity Agent
+
+**Resources**
+
+- `GET /resources` — optional `?type=shelter` etc.
+- `GET /resources/nearest?lat=&lng=&type=`
+- `POST /resources/sync` — run Resource Agent (discover shelters / supply points, upsert DB)
+- `PUT /resources/:id` — status/capacity updates
+
+**Reunification (post)**
+
+- `GET|POST /reunification/missing`, `GET|POST /reunification/found`
+- `GET /reunification/matches`, `POST /reunification/match` — run agent
+
+**Recovery (post)**
+
+- `GET /recovery/briefs`, `GET /recovery/briefs/:neighborhood`
+
+**SMS**
+
+- `POST /sms/webhook` — Twilio inbound
+
+**Shared vocabulary (keep consistent with models + DB):**
+
+- Phase: `pre_storm`, `active_storm`, `post_storm`
+- Alert priority: `info`, `warning`, `critical`, `emergency`
+- Severity label: `low`, `medium`, `high`, `critical`
+- Incident types: `flooding`, `structural_damage`, `trapped_person`, `road_blocked`, `power_outage`, `medical_emergency`, `other`
+- Resource type: `shelter`, `medical`, `supply_point`, `charging`, `road`
+- Resource status: `open`, `limited`, `full`, `closed`, `damaged` (align with frontend types in ARCHITECTURE)
+
+Trigger endpoints (`/generate`, `/process`, `/rank`, `/match`) should invoke the correct agent and persist results before returning.

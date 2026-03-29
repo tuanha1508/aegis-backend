@@ -1,288 +1,227 @@
-"""
-Resource Agent — Tracks and manages emergency resources for Tampa Bay.
-
-Uses Google ADK + Gemini to monitor shelter capacity, find nearest resources,
-factor in road accessibility, and recommend resource deployments based on
-active incidents.
-"""
+"""Discover Tampa-area shelters / supply points and upsert into resources."""
 
 from __future__ import annotations
 
 import json
-import logging
 import math
-import os
-import uuid
+import re
 from typing import Any
+from uuid import UUID
 
-from google.adk.agents import Agent
-from google.adk.models.lite_llm import LiteLlm
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
-from google.genai import types
+import psycopg
 
-from app.config import GEMINI_API_KEY, GROQ_API_KEY
-from app.db.database import get_connection
+from app.config import DEMO_MODE, GEMINI_API_KEY
+from app.services.resource_discovery_service import (
+    ALLOWED_RESOURCE_TYPES,
+    ResourceCandidate,
+    discover_candidates,
+)
 
-logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# ADK Tool Functions
-# ---------------------------------------------------------------------------
+_GEMINI_MODEL = "gemini-2.0-flash"
 
 
-def get_all_resources() -> dict:
-    """Fetch all resources (shelters, medical stations, supply depots) from the database.
+def haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    r = 6_371_000.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lng2 - lng1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(min(1.0, math.sqrt(a)))
 
-    Returns:
-        dict: List of resources with type, name, location, capacity,
-              current occupancy, amenities, and status.
-    """
-    conn = get_connection()
+
+def _normalize_name(name: str) -> str:
+    s = name.lower()
+    s = re.sub(r"[^a-z0-9\s]", " ", s)
+    return " ".join(s.split())
+
+
+def _names_match(a: str, b: str) -> bool:
+    na, nb = _normalize_name(a), _normalize_name(b)
+    if len(na) < 2 or len(nb) < 2:
+        return False
+    if na in nb or nb in na:
+        return True
+    wa, wb = set(na.split()), set(nb.split())
+    if not wa or not wb:
+        return False
+    inter = len(wa & wb)
+    return inter >= min(2, min(len(wa), len(wb)))
+
+
+def _osm_token(osm_type: str, osm_id: int) -> str:
+    return f"| osm:{osm_type}/{osm_id}"
+
+
+def _find_by_osm(conn: psycopg.Connection, osm_type: str, osm_id: int) -> dict | None:
+    token = _osm_token(osm_type, osm_id)
+    return conn.execute(
+        "SELECT * FROM resources WHERE notes LIKE %s",
+        (f"%{token}%",),
+    ).fetchone()
+
+
+def _find_fuzzy(
+    conn: psycopg.Connection,
+    candidate: ResourceCandidate,
+    max_m: float = 100.0,
+) -> dict | None:
     rows = conn.execute(
-        "SELECT * FROM resources ORDER BY type, name"
+        "SELECT * FROM resources WHERE type = %s",
+        (candidate.type,),
     ).fetchall()
-    conn.close()
-
-    if not rows:
-        return {"status": "no_resources", "resources": []}
-
-    return {"status": "ok", "count": len(rows), "resources": [dict(r) for r in rows]}
-
-
-def update_resource_status(
-    resource_id: int,
-    status: str,
-    current_occupancy: int,
-    notes: str,
-) -> dict:
-    """Update the status and occupancy of a resource.
-
-    Args:
-        resource_id: Database ID of the resource.
-        status: New status — one of 'open', 'full', 'closed', 'limited'.
-        current_occupancy: Current number of people at this resource.
-        notes: Free-text notes about the resource status.
-
-    Returns:
-        dict: Status and updated resource data.
-    """
-    conn = get_connection()
-    conn.execute(
-        """UPDATE resources SET
-           status = %s, current_occupancy = %s, notes = %s,
-           last_updated = NOW()
-           WHERE id = %s""",
-        (status, current_occupancy, notes, resource_id),
-    )
-    conn.commit()
-
-    row = conn.execute("SELECT * FROM resources WHERE id = %s", (resource_id,)).fetchone()
-    conn.close()
-
-    if row:
-        return {"status": "updated", "resource": dict(row)}
-    return {"status": "error", "message": f"Resource {resource_id} not found"}
-
-
-def get_incidents_needing_resources() -> dict:
-    """Fetch unresolved incidents that may need resource deployment.
-
-    Returns incidents ranked by severity so the agent can recommend
-    which resources to deploy where.
-    """
-    conn = get_connection()
-    try:
-        rows = conn.execute(
-            """SELECT * FROM incidents
-               WHERE resolved = false
-               ORDER BY severity_score DESC NULLS LAST"""
-        ).fetchall()
-    finally:
-        conn.close()
-
-    if not rows:
-        return {"status": "no_incidents", "incidents": []}
-
-    return {"status": "ok", "count": len(rows), "incidents": [dict(r) for r in rows]}
-
-
-def find_nearest_resource(lat: float, lng: float, resource_type: str) -> dict:
-    """Find the nearest open resource of a given type to a location.
-
-    Args:
-        lat: Latitude of the location needing resources.
-        lng: Longitude of the location needing resources.
-        resource_type: Type of resource needed ('shelter', 'medical', 'supply').
-
-    Returns:
-        dict: The nearest resource with its distance in miles.
-    """
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM resources WHERE type = %s AND status IN ('open', 'limited')",
-        (resource_type,),
-    ).fetchall()
-    conn.close()
-
-    if not rows:
-        return {"status": "none_available", "resource_type": resource_type}
-
-    # Calculate distances (Haversine approximation)
-    best = None
-    best_dist = float("inf")
+    best: dict | None = None
+    best_d = max_m + 1.0
     for row in rows:
-        r = dict(row)
-        dlat = math.radians(r["lat"] - lat)
-        dlng = math.radians(r["lng"] - lng)
-        a = (math.sin(dlat / 2) ** 2 +
-             math.cos(math.radians(lat)) * math.cos(math.radians(r["lat"])) *
-             math.sin(dlng / 2) ** 2)
-        dist_miles = 3959 * 2 * math.asin(math.sqrt(a))
-        if dist_miles < best_dist:
-            best_dist = dist_miles
-            best = r
-
-    best["distance_miles"] = round(best_dist, 2)
-    return {"status": "found", "resource": best}
+        d = haversine_m(
+            candidate.lat,
+            candidate.lng,
+            float(row["lat"]),
+            float(row["lng"]),
+        )
+        if d <= max_m and _names_match(candidate.name, row["name"]):
+            if d < best_d:
+                best_d = d
+                best = row
+    return best
 
 
-# ---------------------------------------------------------------------------
-# Agent Definition
-# ---------------------------------------------------------------------------
-
-RESOURCE_INSTRUCTION = """\
-You are the Aegis Resource Agent for Tampa Bay disaster response.
-
-Your job is to monitor and manage emergency resources — shelters, medical
-stations, and supply depots — ensuring they are deployed effectively based
-on current incidents and demand.
-
-## Your Workflow
-
-1. Call `get_all_resources()` to see current resource status and capacity.
-2. Call `get_incidents_needing_resources()` to see active incidents.
-3. For each high-severity incident, call `find_nearest_resource()` to locate
-   the closest available resource.
-4. Analyze capacity vs. demand and update resource statuses as needed using
-   `update_resource_status()`.
-5. Provide a summary of resource status and recommendations.
-
-## Resource Management Rules
-
-### Capacity Thresholds
-- Open: occupancy < 80% of capacity
-- Limited: occupancy 80-95% of capacity
-- Full: occupancy >= 95% of capacity
-
-### Priority Deployment
-- Critical incidents (score 75+) → nearest shelter + medical
-- High incidents (score 50-74) → nearest shelter
-- Supply needs → direct supply deployment
-
-### Recommendations
-- If a shelter is > 90% full, recommend redirecting to the next nearest.
-- If multiple incidents cluster in one area, recommend staging a supply depot.
-- Track shelter amenities to match needs (medical_station for injuries,
-  pet_friendly for evacuees with pets).
-
-## CRITICAL RULES
-- Always check current capacity before recommending a shelter.
-- Update status to 'full' or 'limited' based on occupancy thresholds.
-- Factor in distance — don't recommend a far shelter when a closer one is open.
-- Provide specific, actionable recommendations.
-"""
+def _resolve_row(conn: psycopg.Connection, c: ResourceCandidate) -> dict | None:
+    if c.osm_type and c.osm_id is not None:
+        row = _find_by_osm(conn, c.osm_type, c.osm_id)
+        if row:
+            return row
+    return _find_fuzzy(conn, c)
 
 
-def _get_model():
-    """Pick the best available model — Groq if key exists, else Gemini."""
-    if GROQ_API_KEY:
-        return LiteLlm(model="groq/llama-3.3-70b-versatile")
-    return "gemini-2.0-flash"
+def _strip_json_fence(text: str) -> str:
+    t = text.strip()
+    if t.startswith("```"):
+        t = re.sub(r"^```\w*\n?", "", t)
+        t = re.sub(r"\n?```\s*$", "", t)
+    return t.strip()
 
 
-def _build_resource_agent() -> Agent:
-    """Create a fresh Resource Agent instance."""
-    return Agent(
-        name="resource_agent",
-        model=_get_model(),
-        description=(
-            "Tracks shelter capacity, finds nearest resources, monitors demand "
-            "from active incidents, and recommends resource deployments."
-        ),
-        instruction=RESOURCE_INSTRUCTION,
-        tools=[get_all_resources, update_resource_status, get_incidents_needing_resources, find_nearest_resource],
-    )
-
-
-# ---------------------------------------------------------------------------
-# Runner
-# ---------------------------------------------------------------------------
-
-APP_NAME = "aegis"
-
-
-async def run_resource_agent() -> dict[str, Any]:
-    """Execute the Resource Agent to analyze and manage resources.
-
-    Returns a dict with:
-        - status: "success" or "error"
-        - summary: text summary from the agent
-        - resources: current state of all resources
-    """
-    if GROQ_API_KEY:
-        os.environ.setdefault("GROQ_API_KEY", GROQ_API_KEY)
-    if GEMINI_API_KEY:
-        os.environ.setdefault("GOOGLE_API_KEY", GEMINI_API_KEY)
-
-    agent = _build_resource_agent()
-    session_service = InMemorySessionService()
-    runner = Runner(
-        agent=agent,
-        app_name=APP_NAME,
-        session_service=session_service,
-    )
-
-    user_id = "aegis_system"
-    session_id = f"resource_{uuid.uuid4().hex[:8]}"
-
-    session = await session_service.create_session(
-        app_name=APP_NAME,
-        user_id=user_id,
-        session_id=session_id,
-    )
-
-    user_message = types.Content(
-        role="user",
-        parts=[types.Part(text=(
-            "Review all resources and active incidents. Update resource statuses "
-            "based on current demand, find nearest resources for each incident, "
-            "and provide recommendations for resource deployment."
-        ))],
-    )
-
-    final_text = ""
+def _apply_gemini_normalization(candidates: list[ResourceCandidate]) -> None:
+    if not GEMINI_API_KEY or not candidates:
+        return
     try:
-        async for event in runner.run_async(
-            user_id=user_id,
-            session_id=session.id,
-            new_message=user_message,
-        ):
-            if event.is_final_response() and event.content and event.content.parts:
-                final_text = event.content.parts[0].text
-    except Exception as e:
-        logger.error("Resource Agent error: %s", e)
-        return {"status": "error", "error": str(e), "resources": []}
+        from google import genai
+    except ImportError:
+        return
+    items = [
+        {
+            "i": i,
+            "name": c.name,
+            "type_guess": c.type,
+            "amenities": c.amenities or "",
+            "tags": c.raw_tags,
+        }
+        for i, c in enumerate(candidates)
+    ]
+    prompt = (
+        "You normalize disaster resource records for a Tampa Bay database.\n"
+        "Given JSON input with objects having i, name, type_guess, amenities, tags — "
+        "output ONLY a JSON array of objects {\"i\": int, \"type\": one of "
+        "shelter,medical,supply_point,charging,road, \"amenities\": string}.\n"
+        "amenities: short comma-separated keywords (e.g. hot_meals,wheelchair,food_bank). "
+        "Use type_guess unless tags clearly indicate another allowed type.\n\n"
+        f"INPUT:\n{json.dumps(items, ensure_ascii=False)}"
+    )
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        resp = client.models.generate_content(model=_GEMINI_MODEL, contents=prompt)
+        text = resp.text or ""
+        data = json.loads(_strip_json_fence(text))
+        if not isinstance(data, list):
+            return
+        by_i = {entry.get("i"): entry for entry in data if isinstance(entry, dict)}
+        for i, c in enumerate(candidates):
+            entry = by_i.get(i)
+            if not entry:
+                continue
+            t = entry.get("type")
+            av = entry.get("amenities")
+            if isinstance(t, str) and t in ALLOWED_RESOURCE_TYPES:
+                c.type = t
+            if isinstance(av, str) and av.strip():
+                c.amenities = av.strip()
+    except Exception:
+        return
 
-    # Fetch current resource state
-    conn = get_connection()
-    rows = conn.execute("SELECT * FROM resources ORDER BY type, name").fetchall()
-    conn.close()
 
-    resources = [dict(r) for r in rows]
+def run_resource_sync(conn: psycopg.Connection, *, run_id: UUID | None = None) -> dict[str, Any]:
+    """
+    Fetch discovery candidates, optionally normalize with Gemini, upsert into resources.
+    Does not commit — caller commits.
+    Preserves existing status, current_occupancy, and notes on UPDATE.
+    """
+    _ = run_id
+    candidates, source = discover_candidates()
+    _apply_gemini_normalization(candidates)
+
+    inserted = 0
+    updated = 0
+    errors: list[str] = []
+
+    for c in candidates:
+        if c.type not in ALLOWED_RESOURCE_TYPES:
+            continue
+        try:
+            existing = _resolve_row(conn, c)
+            if existing:
+                conn.execute(
+                    """
+                    UPDATE resources
+                    SET name = %s,
+                        lat = %s,
+                        lng = %s,
+                        address = %s,
+                        amenities = %s,
+                        capacity = COALESCE(%s, capacity),
+                        last_updated = NOW()
+                    WHERE id = %s
+                    """,
+                    (
+                        c.name,
+                        c.lat,
+                        c.lng,
+                        c.address,
+                        c.amenities,
+                        c.capacity,
+                        existing["id"],
+                    ),
+                )
+                updated += 1
+            else:
+                notes_val: str | None = None
+                if c.osm_type and c.osm_id is not None:
+                    notes_val = _osm_token(c.osm_type, c.osm_id).strip()
+                conn.execute(
+                    """
+                    INSERT INTO resources
+                        (type, name, lat, lng, address, capacity, amenities, status, notes)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'open', %s)
+                    """,
+                    (
+                        c.type,
+                        c.name,
+                        c.lat,
+                        c.lng,
+                        c.address,
+                        c.capacity,
+                        c.amenities,
+                        notes_val,
+                    ),
+                )
+                inserted += 1
+        except Exception as ex:
+            errors.append(f"{c.name}: {ex}")
 
     return {
-        "status": "success",
-        "summary": final_text,
-        "resources": resources,
+        "inserted": inserted,
+        "updated": updated,
+        "errors": errors,
+        "source": source,
+        "demo_mode": DEMO_MODE,
+        "candidates_seen": len(candidates),
     }
