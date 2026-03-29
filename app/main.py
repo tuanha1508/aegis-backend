@@ -105,3 +105,14 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
+
+# ─── A2A Agent Discovery ──────────────────────────────────────
+# Serves the agent card at the standard well-known path for A2A discovery
+
+@app.get("/.well-known/agent.json")
+@app.get("/.well-known/agent-card.json")
+async def a2a_agent_card():
+    """A2A Agent Card — describes all Aegis specialist agents for discovery."""
+    from app.a2a.agent_cards import get_aegis_agent_card
+    return get_aegis_agent_card()
