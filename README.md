@@ -5,7 +5,7 @@ Multi-agent disaster intelligence system for Tampa Bay, powered by Google ADK + 
 ## Agents
 
 - **Monitor Agent** — Ingests NOAA weather, USGS water levels, tide data
-- **Alert Agent** — Generates localized warnings via Gemini, SMS (Twilio)
+- **Alert Agent** — Generates localized warnings via Gemini
 - **Field Report Agent** — Processes incoming SMS/text reports during active storm
 - **Severity Agent** — Ranks incidents by urgency and survivability
 - **Resource Agent** — Tracks shelters, supplies, routes, charging stations
@@ -18,7 +18,6 @@ Multi-agent disaster intelligence system for Tampa Bay, powered by Google ADK + 
 - Gemini Flash (optional: Groq via LiteLLM when `GROQ_API_KEY` is set)
 - FastAPI
 - **PostgreSQL** (hosted on **Supabase** in production; connection via `DATABASE_URL`)
-- Twilio (SMS)
 
 ## Database
 

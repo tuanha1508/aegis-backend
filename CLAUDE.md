@@ -18,7 +18,6 @@ Aegis is a multi-agent disaster intelligence platform for Tampa Bay built for Ha
 - Gemini Flash (via Vertex AI or AI Studio) as the LLM for all agents
 - FastAPI for REST API
 - PostgreSQL for database (**psycopg**; schema in `supabase/migrations/`)
-- Twilio for SMS (incoming field reports + outgoing alerts)
 
 ## Project Structure
 
@@ -26,7 +25,7 @@ Aegis is a multi-agent disaster intelligence platform for Tampa Bay built for Ha
 aegis-backend/
 ├── app/
 │   ├── main.py                  # FastAPI entry point, CORS, mount routers, lifespan init_db
-│   ├── config.py                # Env vars: GEMINI_API_KEY, GROQ_API_KEY, TWILIO_*, DATABASE_URL, ...
+│   ├── config.py                # Env vars: GEMINI_API_KEY, GROQ_API_KEY, DATABASE_URL, ...
 │   │
 │   ├── api/                     # One file per resource
 │   │   ├── routes_phase.py      # GET /phase, POST /phase/advance
@@ -39,7 +38,7 @@ aegis-backend/
 │   │   ├── routes_recovery.py   # GET /recovery/briefs
 │   │   ├── routes_assignments.py
 │   │   ├── routes_audit.py      # Agent audit log
-│   │   └── routes_sms.py       # POST /sms/webhook (Twilio)
+│   │   └── routes_sms.py       # POST /sms/webhook, POST /sms/chat
 │   │
 │   ├── agents/                  # Google ADK agents
 │   │   ├── orchestrator.py      # Parent agent that coordinates sub-agents
@@ -64,7 +63,6 @@ aegis-backend/
 │   │   └── seed.py              # Seed Tampa Bay demo data
 │   │
 │   ├── services/
-│   │   ├── twilio_service.py    # send_sms(), handle incoming
 │   │   └── weather_service.py   # Fetch/load NOAA data
 │   │
 │   └── data/                    # Static seed data files
@@ -92,11 +90,11 @@ aegis-backend/
 ### 2. Alert Agent (Pre-Storm + Active Storm)
 - **Input:** Risk data from Monitor Agent OR incident data from Severity Agent
 - **Processing:** Uses Gemini to generate plain-language warnings, translates to Spanish
-- **Output:** Alert objects with priority (info/warning/critical/emergency), sends via Twilio SMS
+- **Output:** Alert objects with priority (info/warning/critical/emergency)
 - **Writes to:** `alerts` table
 
 ### 3. Field Report Agent (Active Storm)
-- **Input:** Raw text from SMS (Twilio webhook) or app form submission
+- **Input:** Raw text from SMS webhook or app form submission
 - **Processing:** Uses Gemini to extract location, incident type, people count, language detection, geocoding
 - **Output:** Structured report with parsed fields
 - **Writes to:** `reports` table (sets `processed` to true when parsed)
@@ -174,7 +172,7 @@ GET    /recovery/briefs              → all neighborhood recovery briefs
 GET    /recovery/briefs/:neighborhood → specific brief
 
 # SMS
-POST   /sms/webhook                  → Twilio incoming SMS webhook
+POST   /sms/webhook                  → incoming SMS webhook
 
 # Audit / assignments
 GET    /audit-log                    → agent audit log (?run_id, ?limit)
@@ -222,9 +220,6 @@ See `.env.example` for the full list. Important:
 ```
 GEMINI_API_KEY=your_gemini_api_key
 GROQ_API_KEY=                    # optional — LiteLLM / Groq for ADK when set
-TWILIO_ACCOUNT_SID=your_twilio_sid
-TWILIO_AUTH_TOKEN=your_twilio_token
-TWILIO_PHONE_NUMBER=+1XXXXXXXXXX
 DATABASE_URL=postgresql://...    # Supabase Postgres URI (required for app DB access)
 DEMO_MODE=true                   # sample weather vs live placeholder
 ```
@@ -245,8 +240,7 @@ uvicorn app.main:app --reload --port 8000
 1. **First:** FastAPI setup + Postgres migrations + seed data (Person A)
 2. **Second:** Monitor Agent + Alert Agent (Person A), Field Report Agent + Severity Agent (Person B)
 3. **Third:** Resource Agent + Reunification Agent (Person B)
-4. **Fourth:** Twilio webhook (Person B)
-5. **Last:** Polish, edge cases, demo hardening
+4. **Last:** Polish, edge cases, demo hardening
 
 ## Frontend Repo
 

@@ -3,7 +3,7 @@ Alert Agent — Generates multilingual disaster alerts for Tampa Bay.
 
 Takes risk data from Monitor Agent OR incident data from Severity Agent,
 uses Gemini to craft plain-language warnings in English and Spanish,
-determines priority level, and delivers via Twilio SMS.
+determines priority level, and delivers via the app dashboard.
 """
 
 import logging
@@ -19,7 +19,6 @@ from google.genai import types
 
 from app.config import GEMINI_API_KEY, GROQ_API_KEY
 from app.db.database import get_connection
-from app.services.twilio_service import send_sms
 
 logger = logging.getLogger(__name__)
 
@@ -129,18 +128,6 @@ def save_alert(
     return {"status": "saved", "alert_id": alert_id}
 
 
-def send_sms_alert(phone_number: str, message: str) -> dict:
-    """Send an SMS alert to a specific phone number via Twilio.
-
-    Args:
-        phone_number: Recipient phone number in E.164 format (e.g. '+18135551234')
-        message: The alert text to send (max 1600 chars for SMS)
-
-    Returns delivery status from Twilio.
-    """
-    result = send_sms(to=phone_number, body=message)
-    return result
-
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +209,6 @@ def _build_alert_agent() -> Agent:
             get_current_phase,
             get_active_incidents,
             save_alert,
-            send_sms_alert,
         ],
     )
 

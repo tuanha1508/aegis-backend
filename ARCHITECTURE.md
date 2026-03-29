@@ -5,7 +5,7 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          USERS                                      │
-│  Browser (Dashboard)    SMS (Twilio)                                │
+│  Browser (Dashboard)    SMS                                         │
 └──────────┬──────────────────┬──────────────────┬────────────────────┘
            │                  │                  │
            ▼                  ▼                  ▼
@@ -23,7 +23,7 @@
 │  markers            │  │    /resources      GET shelters/supplies  │
 │                     │  │    /reunification  GET/POST missing/found │
 │  /report            │  │    /recovery       GET neighborhood briefs│
-│  Submit field       │  │    /sms/webhook    POST Twilio incoming   │
+│  Submit field       │  │    /sms/webhook    POST incoming SMS      │
 │  reports            │  │                                          │
 │                     │  │  ┌──────────────────────────────────┐    │
 │  /reunify           │  │  │      GOOGLE ADK ORCHESTRATOR     │    │
@@ -98,7 +98,7 @@ aegis-backend/
 │   │   ├── routes_recovery.py   # Recovery brief endpoints
 │   │   ├── routes_assignments.py # Responder assignments (if enabled)
 │   │   ├── routes_audit.py      # Agent audit log endpoints
-│   │   └── routes_sms.py       # Twilio webhook endpoint
+│   │   └── routes_sms.py       # SMS webhook + chat endpoint
 │   │
 │   ├── agents/
 │   │   ├── __init__.py
@@ -127,7 +127,6 @@ aegis-backend/
 │   │
 │   ├── services/
 │   │   ├── __init__.py
-│   │   ├── twilio_service.py    # Send/receive SMS
 │   │   └── weather_service.py   # NOAA data fetching
 │   │
 │   └── data/
@@ -224,7 +223,6 @@ Output:
 
 Delivery:
   - App: returned via API to frontend
-  - SMS: sent via Twilio to registered numbers
 ```
 
 #### 3. Field Report Agent (Active Storm)
@@ -233,7 +231,7 @@ Delivery:
 Purpose: Parse incoming reports from multiple sources into structured incidents
 
 Input:
-  - SMS messages (via Twilio webhook)
+  - SMS messages (via webhook)
   - App-submitted reports (via frontend form)
   - Raw text in any format, any language
 
@@ -450,8 +448,8 @@ POST   /reunification/match      → Trigger Reunification Agent to find matches
 GET    /recovery/briefs          → [{ neighborhood, power, water, roads, shelters, ... }]
 GET    /recovery/briefs/:neighborhood → Specific neighborhood brief
 
-# ─── SMS Webhook (Twilio) ───────────────────────────
-POST   /sms/webhook              → Receives incoming SMS from Twilio
+# ─── SMS Webhook ──────────────────────────────────────
+POST   /sms/webhook              → Receives incoming SMS
 ```
 
 ### Database Schema (PostgreSQL / Supabase)
@@ -818,14 +816,13 @@ Monitor Agent ──→ risk_assessments table
     │
     ▼
 Alert Agent ──→ alerts table ──→ Frontend alert feed
-    │                            + Twilio SMS
     ▼
 Frontend map shows risk zones colored by flood_risk score
 ```
 
 ### Active Storm Flow
 ```
-SMS (Twilio webhook) ──┐
+SMS webhook ───────────┐
 App report form ───────┤
                        ▼
               Field Report Agent ──→ reports table
@@ -888,7 +885,7 @@ Tasks:
   2. Severity Agent implementation
   3. Reunification Agent implementation
   4. Resource Agent implementation
-  5. Twilio webhook + SMS service
+  5. SMS webhook integration
 ```
 
 ### Person C: Frontend Core + Map
