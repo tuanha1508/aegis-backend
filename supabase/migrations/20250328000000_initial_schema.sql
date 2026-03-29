@@ -149,6 +149,21 @@ CREATE TABLE IF NOT EXISTS assignments (
     notes TEXT
 );
 
+CREATE TABLE IF NOT EXISTS orchestration_state (
+    id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    operational_mode TEXT NOT NULL DEFAULT 'idle',
+    scenario_step TEXT DEFAULT 'storm_none',
+    last_monitor_run_at TIMESTAMPTZ,
+    last_alert_run_at TIMESTAMPTZ,
+    last_report_process_at TIMESTAMPTZ,
+    last_severity_run_at TIMESTAMPTZ,
+    last_resource_run_at TIMESTAMPTZ,
+    last_reunification_run_at TIMESTAMPTZ,
+    last_recovery_run_at TIMESTAMPTZ,
+    post_storm_started_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS audit_log (
     id BIGSERIAL PRIMARY KEY,
     agent_name TEXT NOT NULL,

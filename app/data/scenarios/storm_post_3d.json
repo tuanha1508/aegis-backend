@@ -1,0 +1,26 @@
+{
+  "storm_name": null,
+  "category": 0,
+  "max_wind_mph": 15,
+  "movement": "Stationary",
+  "pressure_mb": 1010,
+  "current_lat": null,
+  "current_lng": null,
+  "landfall_eta": null,
+  "peak_category": 0,
+  "peak_wind_mph": 15,
+  "peak_pressure_mb": 1010,
+  "source": "Simulated scenario — 3 days after landfall, recovery underway",
+  "trajectory": [],
+  "warnings": [
+    "Flood Advisory in effect for Hillsborough and Pinellas counties through Thursday"
+  ],
+  "tide_data": {
+    "station": "8726520 (St. Petersburg, NOAA)",
+    "source": "Simulated — Near-normal conditions returning",
+    "current_ft": 0.9,
+    "predicted_peak_ft": 1.2,
+    "peak_time": null,
+    "note": "Tides returning to normal. Some coastal areas still experiencing minor flooding at high tide. Recovery operations in progress."
+  }
+}

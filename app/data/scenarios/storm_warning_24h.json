@@ -1,0 +1,37 @@
+{
+  "storm_name": "Hurricane Milton",
+  "category": 3,
+  "max_wind_mph": 120,
+  "movement": "ENE at 14 mph",
+  "pressure_mb": 950,
+  "current_lat": 25.0,
+  "current_lng": -87.5,
+  "landfall_eta": "2024-10-09T20:30:00",
+  "peak_category": 5,
+  "peak_wind_mph": 180,
+  "peak_pressure_mb": 897,
+  "source": "Simulated scenario — Hurricane warning, 24 hours out",
+  "trajectory": [
+    {"lat": 21.1, "lng": -95.5, "time": "2024-10-05T12:00:00", "category": 0, "wind_mph": 45},
+    {"lat": 22.0, "lng": -93.0, "time": "2024-10-06T12:00:00", "category": 1, "wind_mph": 80},
+    {"lat": 23.5, "lng": -90.5, "time": "2024-10-07T00:00:00", "category": 5, "wind_mph": 180},
+    {"lat": 25.0, "lng": -87.5, "time": "2024-10-08T18:00:00", "category": 4, "wind_mph": 150},
+    {"lat": 26.0, "lng": -85.5, "time": "2024-10-09T06:00:00", "category": 3, "wind_mph": 125},
+    {"lat": 26.8, "lng": -84.0, "time": "2024-10-09T14:00:00", "category": 3, "wind_mph": 120},
+    {"lat": 27.3, "lng": -82.6, "time": "2024-10-09T20:30:00", "category": 3, "wind_mph": 120},
+    {"lat": 27.8, "lng": -81.5, "time": "2024-10-10T03:00:00", "category": 1, "wind_mph": 85},
+    {"lat": 28.5, "lng": -80.2, "time": "2024-10-10T12:00:00", "category": 1, "wind_mph": 75}
+  ],
+  "warnings": [
+    "Hurricane Warning: Tampa Bay, Hillsborough, Pinellas, Manatee counties",
+    "Storm Surge Warning: 6-10 ft above normal tide levels for Tampa Bay"
+  ],
+  "tide_data": {
+    "station": "8726520 (St. Petersburg, NOAA)",
+    "source": "Simulated — Tide rising ahead of storm",
+    "current_ft": 1.4,
+    "predicted_peak_ft": 4.5,
+    "peak_time": "2024-10-09T20:30:00",
+    "note": "Water levels rising. Storm surge of 6-10 ft expected at landfall. Evacuations underway for Zone A."
+  }
+}

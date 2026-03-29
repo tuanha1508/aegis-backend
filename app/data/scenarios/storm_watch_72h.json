@@ -1,0 +1,35 @@
+{
+  "storm_name": "Hurricane Milton",
+  "category": 1,
+  "max_wind_mph": 80,
+  "movement": "NNW at 12 mph",
+  "pressure_mb": 985,
+  "current_lat": 20.5,
+  "current_lng": -84.0,
+  "landfall_eta": "2024-10-09T20:30:00",
+  "peak_category": 1,
+  "peak_wind_mph": 80,
+  "peak_pressure_mb": 985,
+  "source": "Simulated scenario — Storm forming, 72 hours out",
+  "trajectory": [
+    {"lat": 19.0, "lng": -86.0, "time": "2024-10-06T00:00:00", "category": 0, "wind_mph": 40},
+    {"lat": 19.5, "lng": -85.5, "time": "2024-10-06T06:00:00", "category": 0, "wind_mph": 50},
+    {"lat": 20.0, "lng": -84.5, "time": "2024-10-06T12:00:00", "category": 0, "wind_mph": 60},
+    {"lat": 20.5, "lng": -84.0, "time": "2024-10-06T18:00:00", "category": 1, "wind_mph": 80},
+    {"lat": 21.5, "lng": -83.0, "time": "2024-10-07T12:00:00", "category": 1, "wind_mph": 85},
+    {"lat": 23.0, "lng": -84.5, "time": "2024-10-08T12:00:00", "category": 2, "wind_mph": 100},
+    {"lat": 25.0, "lng": -84.0, "time": "2024-10-09T06:00:00", "category": 3, "wind_mph": 115},
+    {"lat": 27.3, "lng": -82.6, "time": "2024-10-09T20:30:00", "category": 3, "wind_mph": 120}
+  ],
+  "warnings": [
+    "Tropical Storm Watch for Tampa Bay and surrounding counties"
+  ],
+  "tide_data": {
+    "station": "8726520 (St. Petersburg, NOAA)",
+    "source": "Simulated — Mild tidal conditions",
+    "current_ft": 1.0,
+    "predicted_peak_ft": 1.5,
+    "peak_time": "2024-10-09T20:30:00",
+    "note": "Tides slightly above normal. Storm is still 72 hours away — surge forecast uncertain."
+  }
+}
