@@ -29,6 +29,21 @@ def check(name: str, condition: bool, detail: str = ""):
         print(f"  FAIL ✗  {name}  {detail}")
 
 
+async def poll_until(client, endpoint, condition_fn, timeout=60, interval=2, label=""):
+    """Poll an endpoint until condition_fn(response_json) is True or timeout."""
+    start = time.time()
+    while time.time() - start < timeout:
+        r = (await client.get(endpoint)).json()
+        if condition_fn(r):
+            elapsed = time.time() - start
+            print(f"  ... {label} ready in {elapsed:.1f}s")
+            return r
+        await asyncio.sleep(interval)
+    elapsed = time.time() - start
+    print(f"  ... {label} timed out after {elapsed:.0f}s")
+    return (await client.get(endpoint)).json()
+
+
 async def run_tests():
     global PASS, FAIL
 
@@ -75,12 +90,17 @@ async def run_tests():
         check("has neighborhood", report.get("neighborhood") is not None)
         check("processed=True", report.get("processed") is True)
 
-        # Wait for background cascade
-        print("  ... waiting 50s for auto-cascade (severity → alert) ...")
-        await asyncio.sleep(50)
-
-        incidents_after = (await c.get("/incidents")).json()
-        alerts_after = (await c.get("/alerts")).json()
+        # Poll for background cascade instead of sleeping
+        incidents_after = await poll_until(
+            c, "/incidents",
+            lambda r: len(r) > baseline_incidents,
+            timeout=60, label="auto-severity",
+        )
+        alerts_after = await poll_until(
+            c, "/alerts",
+            lambda r: len(r) > baseline_alerts,
+            timeout=30, label="auto-alert",
+        )
         check("auto-severity: new incidents created",
               len(incidents_after) > baseline_incidents,
               f"was={baseline_incidents} now={len(incidents_after)}")
@@ -129,11 +149,16 @@ async def run_tests():
         check("phase=active_storm", r.get("current_phase") == "active_storm")
 
         # Wait for auto-cascade
-        print("  ... waiting 40s for phase cascade agents ...")
-        await asyncio.sleep(40)
-
-        incidents_phase = (await c.get("/incidents")).json()
-        alerts_phase = (await c.get("/alerts")).json()
+        incidents_phase = await poll_until(
+            c, "/incidents",
+            lambda r: len(r) > cascade_incidents,
+            timeout=60, label="phase-cascade incidents",
+        )
+        alerts_phase = await poll_until(
+            c, "/alerts",
+            lambda r: len(r) > cascade_alerts,
+            timeout=30, label="phase-cascade alerts",
+        )
         check("phase cascade: incidents updated",
               len(incidents_phase) >= cascade_incidents,
               f"was={cascade_incidents} now={len(incidents_phase)}")
@@ -147,10 +172,11 @@ async def run_tests():
         r = (await c.post("/phase/advance")).json()
         check("phase=post_storm", r.get("current_phase") == "post_storm")
 
-        print("  ... waiting 35s for reunification cascade ...")
-        await asyncio.sleep(35)
-
-        matches_after = (await c.get("/reunification/matches")).json()
+        matches_after = await poll_until(
+            c, "/reunification/matches",
+            lambda r: len(r) > 0,
+            timeout=60, label="reunification",
+        )
         check("auto-reunification: matches found",
               len(matches_after) > 0,
               f"matches={len(matches_after)}")
