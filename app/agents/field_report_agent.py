@@ -331,11 +331,22 @@ async def run_field_report_agent() -> dict[str, Any]:
     }
 
 
-async def run_field_report_agent_single(report_id: int, raw_text: str) -> dict[str, Any]:
+async def run_field_report_agent_single(
+    report_id: int,
+    raw_text: str,
+    user_lat: float | None = None,
+    user_lng: float | None = None,
+) -> dict[str, Any]:
     """Process a single report interactively and return the AI's response.
 
     Used by the SMS chat simulator — processes one report and returns
     a conversational AI reply along with the structured data.
+
+    Args:
+        report_id: DB id of the stored report.
+        raw_text: The raw message text.
+        user_lat: GPS latitude from the user's device (if available).
+        user_lng: GPS longitude from the user's device (if available).
     """
     if GROQ_API_KEY:
         os.environ.setdefault("GROQ_API_KEY", GROQ_API_KEY)
@@ -359,16 +370,27 @@ async def run_field_report_agent_single(report_id: int, raw_text: str) -> dict[s
         session_id=session_id,
     )
 
+    # Build GPS context for the agent
+    gps_context = ""
+    if user_lat is not None and user_lng is not None:
+        neighborhood = _nearest_neighborhood(user_lat, user_lng)
+        gps_context = (
+            f"\n\nThe user's GPS location is: lat={user_lat}, lng={user_lng} "
+            f"(near {neighborhood}). Use these exact coordinates for lat/lng "
+            f"and use '{neighborhood}' as the location_text if the message "
+            f"doesn't mention a specific street or landmark."
+        )
+
     user_message = types.Content(
         role="user",
         parts=[types.Part(text=(
             f"A field report was just submitted (report ID: {report_id}):\n\n"
-            f"\"{raw_text}\"\n\n"
+            f"\"{raw_text}\"{gps_context}\n\n"
             "1. Call get_tampa_locations() to load reference data.\n"
             "2. Analyze this report and extract all fields.\n"
             "3. For location_text, ALWAYS use a specific street name, landmark, "
             "or neighborhood — NEVER use 'Unknown'. If the report doesn't mention "
-            "a location, pick the best-matching Tampa neighborhood.\n"
+            "a location, use the GPS neighborhood above.\n"
             "4. Call parse_report() to save the structured data.\n"
             "5. After saving, respond with a brief, helpful acknowledgment message "
             "that a disaster response bot would send back to the person who "

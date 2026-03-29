@@ -41,6 +41,8 @@ def _is_disaster_report(text: str) -> bool:
 class SmsChatRequest(BaseModel):
     message: str
     phone: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 
 @router.post("/sms/webhook")
@@ -78,19 +80,29 @@ async def sms_chat(body: SmsChatRequest):
     # It's a disaster report — store and process
     from app.agents.field_report_agent import run_field_report_agent_single
 
+    # If GPS coords provided, store them directly on the report
     conn = get_connection()
     try:
-        row = conn.execute(
-            """INSERT INTO reports (raw_text, source, sender_phone)
-               VALUES (%s, 'sms_chat', %s) RETURNING id""",
-            (body.message, body.phone),
-        ).fetchone()
+        if body.lat is not None and body.lng is not None:
+            row = conn.execute(
+                """INSERT INTO reports (raw_text, source, sender_phone, lat, lng)
+                   VALUES (%s, 'sms_chat', %s, %s, %s) RETURNING id""",
+                (body.message, body.phone, body.lat, body.lng),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                """INSERT INTO reports (raw_text, source, sender_phone)
+                   VALUES (%s, 'sms_chat', %s) RETURNING id""",
+                (body.message, body.phone),
+            ).fetchone()
         conn.commit()
         report_id = row["id"]
     finally:
         conn.close()
 
-    result = await run_field_report_agent_single(report_id, body.message)
+    result = await run_field_report_agent_single(
+        report_id, body.message, user_lat=body.lat, user_lng=body.lng
+    )
 
     return {
         "status": result.get("status", "error"),
