@@ -58,6 +58,34 @@ async def auto_cascade_report(report_id: int) -> dict[str, Any]:
     if not report:
         return {"actions": [], "reason": "report not found"}
 
+    # Auto-update shelter status if report mentions shelter capacity
+    raw_text = (report.get("raw_text") or "").lower()
+    shelter_keywords = ["shelter", "capacity", "full", "turning away", "no room", "at capacity", "overcrowded"]
+    if any(kw in raw_text for kw in shelter_keywords):
+        try:
+            location = report.get("location_text") or ""
+            conn2 = get_connection()
+            try:
+                # Find matching shelter by name
+                shelters = conn2.execute(
+                    "SELECT id, name, capacity, current_occupancy FROM resources WHERE type = 'shelter'"
+                ).fetchall()
+                for s in shelters:
+                    if s["name"].lower() in raw_text or (location and location.lower() in s["name"].lower()):
+                        # Mark as full
+                        if any(w in raw_text for w in ["full", "capacity", "turning away", "no room", "at capacity"]):
+                            conn2.execute(
+                                "UPDATE resources SET current_occupancy = capacity, status = 'full', notes = %s WHERE id = %s",
+                                (f"Reported full via SMS: {report.get('raw_text', '')[:100]}", s["id"]),
+                            )
+                            conn2.commit()
+                            actions.append(f"shelter_update: {s['name']} marked as FULL")
+                        break
+            finally:
+                conn2.close()
+        except Exception as e:
+            logger.warning("Shelter status auto-update failed: %s", e)
+
     # Auto-severity: run if we have enough parsed reports without incidents,
     # OR if this report mentions trapped/medical (urgent)
     urgent_types = {"trapped_person", "medical_emergency", "structural_damage", "fire"}

@@ -25,16 +25,40 @@ NWS_HEADERS = {"User-Agent": "Aegis-StormIntel (hackusf2026@example.com)"}
 
 # ─── USGS Real-Time Water Levels ─────────────────────────────
 
+# Corrected USGS stations with accurate flood stages
+# 02306028: Downtown Tampa tidal gauge — flood stage from NWS AHPS
+# 02301500: Alafia River — reliable inland gauge
+# 02300500: Little Manatee River — southern Hillsborough County
+# 02304500: Hillsborough River upstream — flood stage = 32 ft per NWS
 USGS_STATIONS = {
-    "02304500": {"name": "Hillsborough River at Tampa", "flood_stage_ft": 12.0},
+    "02306028": {"name": "Hillsborough River at Platt St, Tampa", "flood_stage_ft": 14.0},
     "02301500": {"name": "Alafia River at Lithia", "flood_stage_ft": 15.0},
     "02300500": {"name": "Little Manatee River near Wimauma", "flood_stage_ft": 11.0},
-    "02301990": {"name": "Palm River near Tampa", "flood_stage_ft": 8.0},
+    "02304500": {"name": "Hillsborough River near Tampa", "flood_stage_ft": 32.0},
 }
 
 
 async def get_water_levels() -> dict:
-    """Fetch real-time water levels from USGS Water Services API."""
+    """Fetch water levels — simulated during demo, real from USGS otherwise."""
+    try:
+        from app.services.orchestration_engine import get_scenario
+        scenario = get_scenario()
+        if scenario != "storm_none" and scenario in _DEMO_WATER:
+            from datetime import datetime
+            now = datetime.utcnow().isoformat()
+            stations = []
+            for s in _DEMO_WATER[scenario]:
+                stations.append({
+                    **s,
+                    "station_id": "SIM",
+                    "lat": 27.95, "lng": -82.46,
+                    "change_1h": 0.5 if s["trend"] == "rising" else -0.3,
+                    "readings_24h": [],
+                    "last_updated": now,
+                })
+            return {"stations": stations, "fetched_at": now}
+    except Exception:
+        pass
     site_ids = ",".join(USGS_STATIONS.keys())
     url = (
         f"https://waterservices.usgs.gov/nwis/iv/"
@@ -174,8 +198,70 @@ def _degrees_to_cardinal(deg: float | None) -> str:
     return dirs[int((deg + 11.25) / 22.5) % 16]
 
 
+_DEMO_WEATHER: dict[str, dict] = {
+    "storm_watch_72h": {"station": "Tampa Intl (SIM)", "temperature_f": 84.0, "wind_speed_mph": 15.0, "wind_gust_mph": 22.0, "wind_direction": "SE", "wind_direction_degrees": 135, "barometric_pressure_inhg": 29.85, "humidity_percent": 82.0, "conditions": "Partly Cloudy, Tropical Disturbance"},
+    "storm_warning_24h": {"station": "Tampa Intl (SIM)", "temperature_f": 82.0, "wind_speed_mph": 35.0, "wind_gust_mph": 48.0, "wind_direction": "ESE", "wind_direction_degrees": 112, "barometric_pressure_inhg": 29.45, "humidity_percent": 88.0, "conditions": "Rain, Tropical Storm Force Winds"},
+    "storm_imminent_6h": {"station": "Tampa Intl (SIM)", "temperature_f": 79.0, "wind_speed_mph": 65.0, "wind_gust_mph": 85.0, "wind_direction": "E", "wind_direction_degrees": 90, "barometric_pressure_inhg": 28.90, "humidity_percent": 95.0, "conditions": "Heavy Rain, Hurricane Warning"},
+    "storm_landfall": {"station": "Tampa Intl (SIM)", "temperature_f": 76.0, "wind_speed_mph": 95.0, "wind_gust_mph": 120.0, "wind_direction": "NE", "wind_direction_degrees": 45, "barometric_pressure_inhg": 28.15, "humidity_percent": 98.0, "conditions": "Extreme — Hurricane Landfall, 120mph Winds"},
+    "storm_post_1d": {"station": "Tampa Intl (SIM)", "temperature_f": 78.0, "wind_speed_mph": 25.0, "wind_gust_mph": 35.0, "wind_direction": "NW", "wind_direction_degrees": 315, "barometric_pressure_inhg": 29.50, "humidity_percent": 85.0, "conditions": "Cloudy, Diminishing Winds"},
+    "storm_post_3d": {"station": "Tampa Intl (SIM)", "temperature_f": 80.0, "wind_speed_mph": 12.0, "wind_gust_mph": None, "wind_direction": "W", "wind_direction_degrees": 270, "barometric_pressure_inhg": 30.00, "humidity_percent": 75.0, "conditions": "Partly Cloudy, Recovery Ops"},
+    "storm_post_5d": {"station": "Tampa Intl (SIM)", "temperature_f": 82.0, "wind_speed_mph": 8.0, "wind_gust_mph": None, "wind_direction": "SW", "wind_direction_degrees": 225, "barometric_pressure_inhg": 30.10, "humidity_percent": 70.0, "conditions": "Clear"},
+}
+
+_DEMO_WATER: dict[str, list[dict]] = {
+    "storm_watch_72h": [
+        {"name": "Hillsborough River at Platt St", "current_level_ft": 10.2, "flood_stage_ft": 14.0, "trend": "rising", "percent_of_flood": 72.9},
+        {"name": "Alafia River at Lithia", "current_level_ft": 4.5, "flood_stage_ft": 15.0, "trend": "rising", "percent_of_flood": 30.0},
+        {"name": "Little Manatee River", "current_level_ft": 5.2, "flood_stage_ft": 11.0, "trend": "rising", "percent_of_flood": 47.3},
+        {"name": "Hillsborough River near Tampa", "current_level_ft": 24.0, "flood_stage_ft": 32.0, "trend": "rising", "percent_of_flood": 75.0},
+    ],
+    "storm_warning_24h": [
+        {"name": "Hillsborough River at Platt St", "current_level_ft": 11.8, "flood_stage_ft": 14.0, "trend": "rising", "percent_of_flood": 84.3},
+        {"name": "Alafia River at Lithia", "current_level_ft": 8.2, "flood_stage_ft": 15.0, "trend": "rising", "percent_of_flood": 54.7},
+        {"name": "Little Manatee River", "current_level_ft": 7.8, "flood_stage_ft": 11.0, "trend": "rising", "percent_of_flood": 70.9},
+        {"name": "Hillsborough River near Tampa", "current_level_ft": 27.5, "flood_stage_ft": 32.0, "trend": "rising", "percent_of_flood": 85.9},
+    ],
+    "storm_imminent_6h": [
+        {"name": "Hillsborough River at Platt St", "current_level_ft": 13.5, "flood_stage_ft": 14.0, "trend": "rising", "percent_of_flood": 96.4},
+        {"name": "Alafia River at Lithia", "current_level_ft": 12.1, "flood_stage_ft": 15.0, "trend": "rising", "percent_of_flood": 80.7},
+        {"name": "Little Manatee River", "current_level_ft": 9.8, "flood_stage_ft": 11.0, "trend": "rising", "percent_of_flood": 89.1},
+        {"name": "Hillsborough River near Tampa", "current_level_ft": 30.5, "flood_stage_ft": 32.0, "trend": "rising", "percent_of_flood": 95.3},
+    ],
+    "storm_landfall": [
+        {"name": "Hillsborough River at Platt St", "current_level_ft": 16.8, "flood_stage_ft": 14.0, "trend": "rising", "percent_of_flood": 120.0},
+        {"name": "Alafia River at Lithia", "current_level_ft": 17.3, "flood_stage_ft": 15.0, "trend": "rising", "percent_of_flood": 115.3},
+        {"name": "Little Manatee River", "current_level_ft": 13.5, "flood_stage_ft": 11.0, "trend": "rising", "percent_of_flood": 122.7},
+        {"name": "Hillsborough River near Tampa", "current_level_ft": 35.2, "flood_stage_ft": 32.0, "trend": "rising", "percent_of_flood": 110.0},
+    ],
+    "storm_post_1d": [
+        {"name": "Hillsborough River at Platt St", "current_level_ft": 14.5, "flood_stage_ft": 14.0, "trend": "falling", "percent_of_flood": 103.6},
+        {"name": "Alafia River at Lithia", "current_level_ft": 13.8, "flood_stage_ft": 15.0, "trend": "falling", "percent_of_flood": 92.0},
+        {"name": "Little Manatee River", "current_level_ft": 10.2, "flood_stage_ft": 11.0, "trend": "falling", "percent_of_flood": 92.7},
+        {"name": "Hillsborough River near Tampa", "current_level_ft": 31.0, "flood_stage_ft": 32.0, "trend": "falling", "percent_of_flood": 96.9},
+    ],
+    "storm_post_3d": [
+        {"name": "Hillsborough River at Platt St", "current_level_ft": 11.5, "flood_stage_ft": 14.0, "trend": "falling", "percent_of_flood": 82.1},
+        {"name": "Alafia River at Lithia", "current_level_ft": 7.5, "flood_stage_ft": 15.0, "trend": "falling", "percent_of_flood": 50.0},
+        {"name": "Little Manatee River", "current_level_ft": 6.2, "flood_stage_ft": 11.0, "trend": "falling", "percent_of_flood": 56.4},
+        {"name": "Hillsborough River near Tampa", "current_level_ft": 26.0, "flood_stage_ft": 32.0, "trend": "falling", "percent_of_flood": 81.3},
+    ],
+}
+
+
 async def get_current_weather() -> dict:
-    """Fetch latest weather observation from NWS for Tampa International Airport."""
+    """Fetch weather — simulated during demo, real from NWS otherwise."""
+    try:
+        from app.services.orchestration_engine import get_scenario
+        scenario = get_scenario()
+        if scenario != "storm_none" and scenario in _DEMO_WEATHER:
+            from datetime import datetime
+            w = _DEMO_WEATHER[scenario].copy()
+            w["observed_at"] = datetime.utcnow().isoformat()
+            w["fetched_at"] = datetime.utcnow().isoformat()
+            return w
+    except Exception:
+        pass
+
     url = "https://api.weather.gov/stations/KTPA/observations/latest"
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(url, headers=NWS_HEADERS)
@@ -292,8 +378,78 @@ def _categorize(text: str) -> str:
     return "other"
 
 
+# Simulated storm news for demo mode — realistic Hurricane Milton headlines
+_DEMO_NEWS: dict[str, list[dict]] = {
+    "storm_watch_72h": [
+        {"source": "NHC", "title": "Tropical Storm Milton forms in Gulf of Mexico", "summary": "A tropical storm has formed in the southwestern Gulf of Mexico and is expected to intensify rapidly over the next 48 hours.", "severity": "moderate", "category": "hurricane"},
+        {"source": "NWS Tampa Bay", "title": "Tampa Bay under Tropical Storm Watch", "summary": "A Tropical Storm Watch has been issued for the Tampa Bay area as Milton tracks northeast.", "severity": "severe", "category": "hurricane"},
+        {"source": "FOX 13 Tampa", "title": "Tampa residents urged to prepare emergency supplies", "summary": "Officials urge Tampa Bay residents to stock up on water, batteries, and non-perishable food as Milton approaches.", "severity": "moderate", "category": "other"},
+    ],
+    "storm_warning_24h": [
+        {"source": "NHC", "title": "BREAKING: Milton rapidly intensifies to Category 5", "summary": "Hurricane Milton has explosively intensified to Category 5 with maximum sustained winds of 180 mph, making it one of the strongest Atlantic hurricanes on record.", "severity": "extreme", "category": "hurricane"},
+        {"source": "NWS Tampa Bay", "title": "Hurricane Warning issued for Hillsborough County", "summary": "A Hurricane Warning is now in effect for the Tampa Bay metro area. Life-threatening storm surge of 10-15 feet expected.", "severity": "extreme", "category": "hurricane"},
+        {"source": "FEMA", "title": "FEMA pre-positions resources ahead of Milton landfall", "summary": "FEMA has pre-positioned disaster response teams and supplies across Florida ahead of Hurricane Milton's expected landfall.", "severity": "severe", "category": "hurricane"},
+        {"source": "FOX 13 Tampa", "title": "Mandatory evacuation ordered for Zone A in Hillsborough County", "summary": "Hillsborough County has issued mandatory evacuation orders for Zone A residents. Shelters are now open.", "severity": "extreme", "category": "hurricane"},
+    ],
+    "storm_imminent_6h": [
+        {"source": "NHC", "title": "Milton weakens to Category 3 but expands — landfall in 6 hours", "summary": "Hurricane Milton has weakened slightly to Category 3 with 120 mph winds but its wind field has nearly doubled in size.", "severity": "extreme", "category": "hurricane"},
+        {"source": "NWS Tampa Bay", "title": "URGENT: Storm surge warning — 10-15 feet possible in Tampa Bay", "summary": "A catastrophic storm surge of 10-15 feet above normal tide levels is possible along the Tampa Bay coastline.", "severity": "extreme", "category": "flood"},
+        {"source": "WTSP Tampa", "title": "I-275 gridlocked as Tampa evacuees flee north", "summary": "Major evacuation routes including I-275 and I-75 are experiencing severe congestion as residents flee ahead of Milton.", "severity": "severe", "category": "other"},
+        {"source": "FOX 13 Tampa", "title": "Tampa International Airport closed ahead of Milton", "summary": "Tampa International Airport has suspended all operations and closed to the public ahead of Hurricane Milton.", "severity": "severe", "category": "hurricane"},
+        {"source": "NWS Tampa Bay", "title": "Flash Flood Warning for Hillsborough and Pinellas counties", "summary": "A Flash Flood Warning is in effect. Rainfall rates of 3-5 inches per hour expected during Milton's passage.", "severity": "extreme", "category": "flood"},
+    ],
+    "storm_landfall": [
+        {"source": "NHC", "title": "BREAKING: Hurricane Milton makes landfall near Siesta Key as Category 3", "summary": "Hurricane Milton has made landfall near Siesta Key, FL with maximum sustained winds of 120 mph at 8:30 PM EDT.", "severity": "extreme", "category": "hurricane"},
+        {"source": "NWS Tampa Bay", "title": "EXTREME DANGER: Storm surge flooding ongoing in Tampa Bay", "summary": "Life-threatening storm surge flooding is occurring across Tampa Bay. Water levels 6-8 feet above normal.", "severity": "extreme", "category": "flood"},
+        {"source": "WTSP Tampa", "title": "Multiple water rescues underway in South Tampa", "summary": "Tampa Fire Rescue reports multiple water rescues in progress in South Tampa, Davis Islands, and Palma Ceia neighborhoods.", "severity": "extreme", "category": "flood"},
+        {"source": "FOX 13 Tampa", "title": "Widespread power outages across Tampa Bay — 1.5 million without power", "summary": "Over 1.5 million customers are without power across the Tampa Bay region as Milton's winds tear through the area.", "severity": "severe", "category": "hurricane"},
+        {"source": "USGS", "title": "Hillsborough River at record levels — major flooding", "summary": "USGS gauges show the Hillsborough River at Tampa has reached record flood stage levels.", "severity": "extreme", "category": "flood"},
+        {"source": "NWS Tampa Bay", "title": "Tornado Warning for eastern Hillsborough County", "summary": "A confirmed tornado has been spotted near Brandon. Take shelter immediately in an interior room.", "severity": "extreme", "category": "tornado"},
+    ],
+    "storm_post_1d": [
+        {"source": "NHC", "title": "Milton exits Florida — tropical storm force winds diminishing", "summary": "Hurricane Milton has crossed the Florida peninsula and moved into the Atlantic. Tropical storm warnings are being discontinued.", "severity": "moderate", "category": "hurricane"},
+        {"source": "FEMA", "title": "FEMA activates Major Disaster Declaration for Florida", "summary": "President has declared a Major Disaster for Florida counties affected by Hurricane Milton, unlocking federal assistance.", "severity": "severe", "category": "hurricane"},
+        {"source": "FOX 13 Tampa", "title": "Milton aftermath: Assessing damage across Tampa Bay", "summary": "As daylight reveals the extent of Milton's destruction, rescue teams are conducting door-to-door searches in flooded neighborhoods.", "severity": "severe", "category": "hurricane"},
+        {"source": "WTSP Tampa", "title": "Boil water advisory issued for Tampa and surrounding areas", "summary": "City of Tampa has issued a boil water advisory after Milton damaged water treatment infrastructure.", "severity": "moderate", "category": "other"},
+    ],
+    "storm_post_3d": [
+        {"source": "FEMA", "title": "FEMA disaster recovery centers opening across Tampa Bay", "summary": "FEMA is opening disaster recovery centers in Hillsborough, Pinellas, and Manatee counties for Milton survivors.", "severity": "moderate", "category": "hurricane"},
+        {"source": "FOX 13 Tampa", "title": "Power restoration progressing — 500,000 still without electricity", "summary": "Utility crews from across the nation are working to restore power. Approximately 500,000 customers remain without service.", "severity": "moderate", "category": "other"},
+        {"source": "NWS Tampa Bay", "title": "River flooding slowly receding across Tampa Bay area", "summary": "Flood waters are gradually receding but several neighborhoods remain underwater. Residents urged to avoid flood water.", "severity": "moderate", "category": "flood"},
+    ],
+    "storm_post_5d": [
+        {"source": "FEMA", "title": "Over $500M in federal aid approved for Milton recovery", "summary": "FEMA has approved over $500 million in federal disaster assistance for individuals and communities affected by Milton.", "severity": "minor", "category": "hurricane"},
+        {"source": "FOX 13 Tampa", "title": "Tampa Bay begins long road to recovery after Milton", "summary": "Community organizations and volunteers are mobilizing to help Tampa Bay residents rebuild after Hurricane Milton.", "severity": "minor", "category": "other"},
+    ],
+}
+
+
 async def get_news_feed() -> dict:
-    """Aggregate storm/weather news from NWS, USGS, NHC, and FEMA."""
+    """Aggregate storm/weather news. In demo mode, return simulated headlines."""
+    # Check if we're in a demo scenario
+    try:
+        from app.services.orchestration_engine import get_scenario
+        scenario = get_scenario()
+    except Exception:
+        scenario = "storm_none"
+
+    # If in a demo scenario, return simulated storm news
+    if scenario != "storm_none" and scenario in _DEMO_NEWS:
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        demo_items = []
+        for i, item in enumerate(_DEMO_NEWS[scenario]):
+            demo_items.append({
+                **item,
+                "url": "",
+                "published_at": (now - timedelta(minutes=i * 5)).isoformat() + "Z",
+            })
+        return {
+            "items": demo_items,
+            "source_count": len({i["source"] for i in demo_items}),
+            "total_items": len(demo_items),
+            "fetched_at": now.isoformat() + "Z",
+        }
     items: list[dict] = []
 
     async with httpx.AsyncClient(timeout=15) as client:
