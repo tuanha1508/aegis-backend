@@ -2,14 +2,13 @@
 
 ## What is Aegis?
 
-Aegis is a multi-agent disaster intelligence platform for Tampa Bay built for HackUSF 2026. It covers the full storm lifecycle: pre-storm monitoring → active storm response → post-storm recovery. The backend is the brain — it runs 6 AI agents via Google ADK, serves a REST API via FastAPI, and stores data in SQLite.
+Aegis is a multi-agent disaster intelligence platform for Tampa Bay built for HackUSF 2026. It covers the full storm lifecycle: pre-storm monitoring → active storm response → post-storm recovery. The backend is the brain — it runs 6 AI agents via Google ADK, serves a REST API via FastAPI, and persists data in **PostgreSQL** (typically **Supabase** in production via `DATABASE_URL`).
 
 ## Hackathon Requirements
 
 - **Public GitHub repo** (this repo)
 - **Google Cloud ADK sponsor challenge** ($1,750) — must use Google ADK for multi-agent orchestration
 - **MLH Gemini API prize** — must use Gemini as the LLM
-- **MLH ElevenLabs prize** — must use ElevenLabs for voice alerts
 - **Code freeze: March 29, 2026 at 11:30 AM EDT**
 
 ## Tech Stack
@@ -18,17 +17,16 @@ Aegis is a multi-agent disaster intelligence platform for Tampa Bay built for Ha
 - Google ADK (Agent Development Kit) for multi-agent orchestration
 - Gemini Flash (via Vertex AI or AI Studio) as the LLM for all agents
 - FastAPI for REST API
-- SQLite for database (single file, zero config)
+- PostgreSQL for database (**psycopg**; schema in `supabase/migrations/`)
 - Twilio for SMS (incoming field reports + outgoing alerts)
-- ElevenLabs for voice alert generation
 
 ## Project Structure
 
 ```
 aegis-backend/
 ├── app/
-│   ├── main.py                  # FastAPI entry point, CORS, mount routers
-│   ├── config.py                # Env vars: GEMINI_API_KEY, TWILIO_*, ELEVENLABS_*
+│   ├── main.py                  # FastAPI entry point, CORS, mount routers, lifespan init_db
+│   ├── config.py                # Env vars: GEMINI_API_KEY, GROQ_API_KEY, TWILIO_*, DATABASE_URL, ...
 │   │
 │   ├── api/                     # One file per resource
 │   │   ├── routes_phase.py      # GET /phase, POST /phase/advance
@@ -39,6 +37,8 @@ aegis-backend/
 │   │   ├── routes_resources.py  # GET /resources, PUT /resources/:id
 │   │   ├── routes_reunification.py  # GET/POST missing, found, matches
 │   │   ├── routes_recovery.py   # GET /recovery/briefs
+│   │   ├── routes_assignments.py
+│   │   ├── routes_audit.py      # Agent audit log
 │   │   └── routes_sms.py       # POST /sms/webhook (Twilio)
 │   │
 │   ├── agents/                  # Google ADK agents
@@ -59,12 +59,12 @@ aegis-backend/
 │   │   └── person.py
 │   │
 │   ├── db/
-│   │   ├── database.py          # SQLite init, get_connection()
+│   │   ├── database.py          # Postgres (psycopg): init_db(), get_connection()
+│   │   ├── audit.py             # insert_audit_log() for agent-trigger routes
 │   │   └── seed.py              # Seed Tampa Bay demo data
 │   │
 │   ├── services/
 │   │   ├── twilio_service.py    # send_sms(), handle incoming
-│   │   ├── elevenlabs_service.py    # generate_voice_alert()
 │   │   └── weather_service.py   # Fetch/load NOAA data
 │   │
 │   └── data/                    # Static seed data files
@@ -74,6 +74,8 @@ aegis-backend/
 │       ├── sample_reports.json
 │       └── sample_persons.json
 │
+├── supabase/
+│   └── migrations/              # Canonical Postgres DDL (applied by init_db)
 ├── requirements.txt
 ├── .env.example
 └── README.md
@@ -90,14 +92,14 @@ aegis-backend/
 ### 2. Alert Agent (Pre-Storm + Active Storm)
 - **Input:** Risk data from Monitor Agent OR incident data from Severity Agent
 - **Processing:** Uses Gemini to generate plain-language warnings, translates to Spanish
-- **Output:** Alert objects with priority (info/warning/critical/emergency), sends via Twilio SMS + ElevenLabs voice
+- **Output:** Alert objects with priority (info/warning/critical/emergency), sends via Twilio SMS
 - **Writes to:** `alerts` table
 
 ### 3. Field Report Agent (Active Storm)
 - **Input:** Raw text from SMS (Twilio webhook) or app form submission
 - **Processing:** Uses Gemini to extract location, incident type, people count, language detection, geocoding
 - **Output:** Structured report with parsed fields
-- **Writes to:** `reports` table (updates processed=1)
+- **Writes to:** `reports` table (sets `processed` to true when parsed)
 
 ### 4. Severity Agent (Active Storm)
 - **Input:** Processed reports from Field Report Agent
@@ -117,147 +119,15 @@ aegis-backend/
 - **Output:** Match candidates with confidence scores (0-1) and match factor explanations
 - **Writes to:** `matches` table
 
-## Database Schema
+## Database schema
 
-```sql
-CREATE TABLE phase (
-    id INTEGER PRIMARY KEY DEFAULT 1,
-    current_phase TEXT NOT NULL DEFAULT 'pre_storm',
-    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+The database is **PostgreSQL** (e.g. Supabase). **Do not assume SQLite.**
 
-CREATE TABLE risk_assessments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    neighborhood TEXT NOT NULL,
-    zone TEXT,
-    lat REAL NOT NULL,
-    lng REAL NOT NULL,
-    flood_risk REAL,
-    storm_surge_ft REAL,
-    time_to_impact_hours REAL,
-    recommendation TEXT,
-    evacuate_by TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+- **Canonical DDL:** `supabase/migrations/` — `BIGSERIAL`, `BOOLEAN`, `TIMESTAMPTZ`, etc.
+- **Runtime:** `app/db/database.py` uses **psycopg**; `init_db()` applies migrations on app startup; `get_connection()` is used by API routes and agent tools.
+- **Tables:** `phase`, `risk_assessments`, `alerts`, `reports`, `incidents`, `resources`, `missing_persons`, `found_persons`, `matches`, `recovery_briefs`, `audit_log`, `assignments` (see migrations for exact columns and constraints).
 
-CREATE TABLE alerts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    phase TEXT NOT NULL,
-    priority TEXT NOT NULL,
-    neighborhood TEXT,
-    title TEXT NOT NULL,
-    message TEXT NOT NULL,
-    message_es TEXT,
-    channels TEXT,
-    delivered INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE reports (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    raw_text TEXT NOT NULL,
-    source TEXT NOT NULL,
-    sender_phone TEXT,
-    location_text TEXT,
-    lat REAL,
-    lng REAL,
-    incident_type TEXT,
-    people_mentioned INTEGER,
-    has_children INTEGER DEFAULT 0,
-    language TEXT DEFAULT 'en',
-    processed INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE incidents (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    report_ids TEXT,
-    incident_type TEXT NOT NULL,
-    location_text TEXT,
-    lat REAL NOT NULL,
-    lng REAL NOT NULL,
-    severity_score INTEGER,
-    severity_label TEXT,
-    factors TEXT,
-    recommended_action TEXT,
-    verified INTEGER DEFAULT 0,
-    report_count INTEGER DEFAULT 1,
-    resolved INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE resources (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT NOT NULL,
-    name TEXT NOT NULL,
-    lat REAL NOT NULL,
-    lng REAL NOT NULL,
-    address TEXT,
-    capacity INTEGER,
-    current_occupancy INTEGER DEFAULT 0,
-    amenities TEXT,
-    status TEXT DEFAULT 'open',
-    notes TEXT,
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE missing_persons (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    reported_by TEXT NOT NULL,
-    reporter_phone TEXT,
-    name TEXT NOT NULL,
-    age INTEGER,
-    gender TEXT,
-    description TEXT,
-    last_known_location TEXT,
-    last_known_lat REAL,
-    last_known_lng REAL,
-    last_contact TIMESTAMP,
-    status TEXT DEFAULT 'missing',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE found_persons (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    age_approx INTEGER,
-    gender TEXT,
-    description TEXT,
-    found_at TEXT,
-    found_lat REAL,
-    found_lng REAL,
-    checked_in TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    matched_missing_id INTEGER,
-    FOREIGN KEY (matched_missing_id) REFERENCES missing_persons(id)
-);
-
-CREATE TABLE matches (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    missing_id INTEGER NOT NULL,
-    found_id INTEGER NOT NULL,
-    confidence REAL NOT NULL,
-    match_factors TEXT,
-    status TEXT DEFAULT 'pending',
-    reviewed_by TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (missing_id) REFERENCES missing_persons(id),
-    FOREIGN KEY (found_id) REFERENCES found_persons(id)
-);
-
-CREATE TABLE recovery_briefs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    neighborhood TEXT NOT NULL,
-    power_status TEXT,
-    water_status TEXT,
-    roads_status TEXT,
-    shelters_nearby TEXT,
-    medical_nearby TEXT,
-    key_updates TEXT,
-    generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+When writing SQL in agents, use Postgres semantics (e.g. `TRUE`/`FALSE`, `NOW()` where the schema expects it).
 
 ## API Endpoints
 
@@ -275,16 +145,16 @@ GET    /monitor/weather              → storm data and trajectory
 
 # Alerts
 GET    /alerts                       → all alerts (optional ?priority=critical)
-POST   /alerts/generate              → trigger Alert Agent
+POST   /alerts/generate              → trigger Alert Agent (response includes `run_id`, audit logged)
 
 # Reports (Active Storm)
 GET    /reports                      → all field reports
 POST   /reports                      → submit new report { "text": "...", "source": "app" }
-POST   /reports/process              → trigger Field Report Agent on unprocessed reports
+POST   /reports/process              → trigger Field Report Agent (response includes `run_id`, audit logged)
 
 # Incidents
 GET    /incidents                    → severity-ranked incidents (optional ?severity=critical)
-POST   /incidents/rank               → trigger Severity Agent
+POST   /incidents/rank               → trigger Severity Agent (response includes `run_id`, audit logged)
 
 # Resources
 GET    /resources                    → all resources (optional ?type=shelter)
@@ -297,7 +167,7 @@ POST   /reunification/missing        → report missing person
 GET    /reunification/found          → all found person records
 POST   /reunification/found          → report found person
 GET    /reunification/matches        → all matches with confidence scores
-POST   /reunification/match          → trigger Reunification Agent
+POST   /reunification/match          → trigger Reunification Agent (response includes `run_id`, audit logged)
 
 # Recovery
 GET    /recovery/briefs              → all neighborhood recovery briefs
@@ -305,6 +175,12 @@ GET    /recovery/briefs/:neighborhood → specific brief
 
 # SMS
 POST   /sms/webhook                  → Twilio incoming SMS webhook
+
+# Audit / assignments
+GET    /audit-log                    → agent audit log (?run_id, ?limit)
+GET    /assignments                  → list assignments (?incident_id)
+GET    /assignments/{id}             → single assignment
+# (additional POST/PATCH on assignments — see routes_assignments.py)
 ```
 
 ## Seed Data (Tampa Bay)
@@ -341,13 +217,16 @@ Use real Tampa Bay locations for the demo:
 
 ## Environment Variables
 
+See `.env.example` for the full list. Important:
+
 ```
 GEMINI_API_KEY=your_gemini_api_key
+GROQ_API_KEY=                    # optional — LiteLLM / Groq for ADK when set
 TWILIO_ACCOUNT_SID=your_twilio_sid
 TWILIO_AUTH_TOKEN=your_twilio_token
 TWILIO_PHONE_NUMBER=+1XXXXXXXXXX
-ELEVENLABS_API_KEY=your_elevenlabs_key
-DATABASE_URL=sqlite:///aegis.db
+DATABASE_URL=postgresql://...    # Supabase Postgres URI (required for app DB access)
+DEMO_MODE=true                   # sample weather vs live placeholder
 ```
 
 ## How to Run
@@ -363,10 +242,10 @@ uvicorn app.main:app --reload --port 8000
 
 ## Priority Order for Building
 
-1. **First:** FastAPI setup + SQLite schema + seed data (Person A)
+1. **First:** FastAPI setup + Postgres migrations + seed data (Person A)
 2. **Second:** Monitor Agent + Alert Agent (Person A), Field Report Agent + Severity Agent (Person B)
 3. **Third:** Resource Agent + Reunification Agent (Person B)
-4. **Fourth:** Twilio webhook + ElevenLabs voice (Person B)
+4. **Fourth:** Twilio webhook (Person B)
 5. **Last:** Polish, edge cases, demo hardening
 
 ## Frontend Repo
