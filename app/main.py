@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 
@@ -17,6 +18,7 @@ from app.api import (
     routes_assignments,
     routes_audit,
     routes_live,
+    routes_orchestration,
 )
 from app.db.database import init_db
 
@@ -24,7 +26,29 @@ from app.db.database import init_db
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # Initialize orchestration_state row
+    from app.db.database import get_connection
+    conn = get_connection()
+    try:
+        conn.execute(
+            """INSERT INTO orchestration_state (id, operational_mode, scenario_step)
+               VALUES (1, 'idle', 'storm_none')
+               ON CONFLICT (id) DO NOTHING"""
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    # Start background scheduler if AUTO_ORCHESTRATE is enabled
+    if os.getenv("AUTO_ORCHESTRATE", "").lower() in ("1", "true", "yes"):
+        from app.services.orchestration_engine import start_scheduler
+        start_scheduler()
+
     yield
+
+    # Cleanup
+    from app.services.orchestration_engine import stop_scheduler
+    stop_scheduler()
 
 
 app = FastAPI(
@@ -54,6 +78,7 @@ app.include_router(routes_sms.router, prefix=PREFIX)
 app.include_router(routes_assignments.router, prefix=PREFIX)
 app.include_router(routes_audit.router, prefix=PREFIX)
 app.include_router(routes_live.router, prefix=PREFIX)
+app.include_router(routes_orchestration.router, prefix=PREFIX)
 
 
 @app.get("/")

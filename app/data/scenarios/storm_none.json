@@ -1,0 +1,24 @@
+{
+  "storm_name": null,
+  "category": 0,
+  "max_wind_mph": 10,
+  "movement": "Stationary",
+  "pressure_mb": 1013,
+  "current_lat": null,
+  "current_lng": null,
+  "landfall_eta": null,
+  "peak_category": 0,
+  "peak_wind_mph": 10,
+  "peak_pressure_mb": 1013,
+  "source": "Simulated scenario — No active storm",
+  "trajectory": [],
+  "warnings": [],
+  "tide_data": {
+    "station": "8726520 (St. Petersburg, NOAA)",
+    "source": "Simulated — Normal conditions",
+    "current_ft": 0.8,
+    "predicted_peak_ft": 1.2,
+    "peak_time": null,
+    "note": "Normal tidal conditions. No storm surge expected."
+  }
+}
