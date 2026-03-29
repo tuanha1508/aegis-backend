@@ -11,11 +11,15 @@ Sources:
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 NWS_HEADERS = {"User-Agent": "Aegis-StormIntel (hackusf2026@example.com)"}
 
@@ -66,6 +70,7 @@ async def get_water_levels() -> dict:
             trend = "stable"
 
         flood_stage = meta.get("flood_stage_ft", 10.0)
+        pct = round(current / flood_stage * 100, 1) if flood_stage > 0 else 0.0
         stations.append({
             "station_id": site_code,
             "name": meta.get("name", source.get("siteName", "")),
@@ -76,7 +81,7 @@ async def get_water_levels() -> dict:
             "change_1h": change_1h,
             "readings_24h": values,
             "flood_stage_ft": flood_stage,
-            "percent_of_flood": round(current / flood_stage * 100, 1),
+            "percent_of_flood": pct,
             "last_updated": readings[-1]["dateTime"],
         })
 
@@ -112,19 +117,29 @@ async def get_tide_data() -> dict:
     obs_data = obs_resp.json().get("data", [])
     pred_data = pred_resp.json().get("predictions", [])
 
-    observations = [{"time": r["t"], "level_ft": float(r["v"])} for r in obs_data]
-    current_level = float(obs_data[-1]["v"]) if obs_data else None
+    observations = []
+    current_level = None
+    for r in obs_data:
+        try:
+            observations.append({"time": r["t"], "level_ft": float(r["v"])})
+        except (KeyError, ValueError):
+            continue
+    if observations:
+        current_level = observations[-1]["level_ft"]
 
     predictions = []
     next_high = None
     next_low = None
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
     for p in pred_data:
-        entry = {
-            "time": p["t"],
-            "level_ft": float(p["v"]),
-            "type": "high" if p.get("type") == "H" else "low",
-        }
+        try:
+            entry = {
+                "time": p["t"],
+                "level_ft": float(p["v"]),
+                "type": "high" if p.get("type") == "H" else "low",
+            }
+        except (KeyError, ValueError):
+            continue
         predictions.append(entry)
         if p["t"] > now_str:
             if p.get("type") == "H" and not next_high:
@@ -146,7 +161,6 @@ async def get_tide_data() -> dict:
 
 async def asyncio_gather(*coros):
     """Helper to gather async coroutines."""
-    import asyncio
     return await asyncio.gather(*coros)
 
 
@@ -299,8 +313,8 @@ async def get_news_feed() -> dict:
                         "severity": "severe" if "warning" in title.lower() else "moderate",
                         "category": _categorize(title),
                     })
-        except Exception:
-            pass
+        except (httpx.HTTPError, ET.ParseError) as e:
+            logger.warning("NHC RSS fetch failed: %s", e)
 
         # 2. NWS Tampa Bay Atom feed
         try:
@@ -321,8 +335,8 @@ async def get_news_feed() -> dict:
                         "severity": "severe",
                         "category": _categorize(title),
                     })
-        except Exception:
-            pass
+        except (httpx.HTTPError, ET.ParseError) as e:
+            logger.warning("NWS Atom feed failed: %s", e)
 
         # 3. FEMA recent FL declarations
         try:
@@ -342,8 +356,29 @@ async def get_news_feed() -> dict:
                         "severity": "moderate",
                         "category": _categorize(title),
                     })
-        except Exception:
-            pass
+        except (httpx.HTTPError, KeyError, ValueError) as e:
+            logger.warning("FEMA API fetch failed: %s", e)
+
+        # 4. USGS Water Alert RSS for Florida
+        try:
+            resp = await client.get("https://water.usgs.gov/wateralert/feeds/FL.xml")
+            if resp.status_code == 200:
+                root = ET.fromstring(resp.text)
+                for item in root.findall(".//item"):
+                    title = item.findtext("title", "")
+                    desc = item.findtext("description", "")
+                    if any(k in (title + desc).lower() for k in ("tampa", "hillsborough", "02304500", "02301500")):
+                        items.append({
+                            "source": "USGS Water Alert",
+                            "title": title,
+                            "summary": desc[:300],
+                            "url": item.findtext("link", ""),
+                            "published_at": item.findtext("pubDate", ""),
+                            "severity": "severe" if "flood" in title.lower() else "moderate",
+                            "category": _categorize(title),
+                        })
+        except (httpx.HTTPError, ET.ParseError) as e:
+            logger.warning("USGS RSS fetch failed: %s", e)
 
     # Sort newest first, limit 20
     items.sort(key=lambda x: x.get("published_at", ""), reverse=True)
@@ -360,39 +395,36 @@ async def get_news_feed() -> dict:
 # ─── Live Stream URLs ────────────────────────────────────────
 
 def get_live_streams() -> dict:
-    """Return hardcoded YouTube live stream URLs for Tampa Bay news stations."""
+    """Return YouTube URLs for Tampa Bay hurricane coverage.
+
+    Includes both channel pages (for live streams when active) and
+    archived Hurricane Milton 2024 coverage as fallback content.
+    """
     return {
         "streams": [
-            {
-                "name": "Bay News 9",
-                "description": "Spectrum Bay News 9 — Tampa Bay's 24/7 local news",
-                "youtube_channel_url": "https://www.youtube.com/@BayNews9",
-                "live_url": "https://www.youtube.com/@BayNews9/live",
-                "embed_url": None,
-                "is_local": True,
-            },
-            {
-                "name": "WFLA News Channel 8",
-                "description": "NBC affiliate — Tampa Bay storm coverage",
-                "youtube_channel_url": "https://www.youtube.com/@WFLANewsChannel8",
-                "live_url": "https://www.youtube.com/@WFLANewsChannel8/live",
-                "embed_url": None,
-                "is_local": True,
-            },
+            # Live channel links (work when stations are broadcasting)
             {
                 "name": "FOX 13 Tampa Bay",
                 "description": "FOX affiliate — Tampa Bay weather and storm tracking",
                 "youtube_channel_url": "https://www.youtube.com/@FOX13TampaBay",
-                "live_url": "https://www.youtube.com/@FOX13TampaBay/live",
-                "embed_url": None,
+                "live_url": "https://www.youtube.com/watch?v=pqaareyk7W8",
+                "embed_url": "https://www.youtube.com/embed/pqaareyk7W8",
                 "is_local": True,
             },
             {
-                "name": "The Weather Channel",
-                "description": "National weather coverage",
-                "youtube_channel_url": "https://www.youtube.com/@weatherchannel",
-                "live_url": "https://www.youtube.com/@weatherchannel/live",
-                "embed_url": None,
+                "name": "WTSP Tampa Bay — Milton Landfall",
+                "description": "Hurricane Milton coverage, Oct 9 2024 (4 hours)",
+                "youtube_channel_url": "https://www.youtube.com/@10TampaBay",
+                "live_url": "https://www.youtube.com/watch?v=N21HO6WV6WI",
+                "embed_url": "https://www.youtube.com/embed/N21HO6WV6WI",
+                "is_local": True,
+            },
+            {
+                "name": "Reuters — Milton Landfall Live",
+                "description": "Hurricane Milton makes landfall in Tampa, Florida",
+                "youtube_channel_url": "https://www.youtube.com/@reuters",
+                "live_url": "https://www.youtube.com/watch?v=2k6OMI7uvhI",
+                "embed_url": "https://www.youtube.com/embed/2k6OMI7uvhI",
                 "is_local": False,
             },
         ]

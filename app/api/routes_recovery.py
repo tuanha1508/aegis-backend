@@ -52,26 +52,26 @@ def _get_neighborhood_context() -> dict:
     """Gather all current data needed to generate recovery briefs."""
     conn = get_connection()
     try:
-        neighborhoods = conn.execute(
+        neighborhoods = [r["neighborhood"] for r in conn.execute(
             "SELECT DISTINCT neighborhood FROM risk_assessments"
-        ).fetchall()
-        incidents = conn.execute(
+        ).fetchall()]
+        incidents = [dict(r) for r in conn.execute(
             "SELECT * FROM incidents ORDER BY severity_score DESC NULLS LAST"
-        ).fetchall()
-        resources = conn.execute(
+        ).fetchall()]
+        resources = [dict(r) for r in conn.execute(
             "SELECT * FROM resources WHERE status IN ('open', 'limited')"
-        ).fetchall()
-        alerts = conn.execute(
+        ).fetchall()]
+        alerts = [dict(r) for r in conn.execute(
             "SELECT * FROM alerts ORDER BY created_at DESC LIMIT 20"
-        ).fetchall()
+        ).fetchall()]
     finally:
         conn.close()
 
     return {
-        "neighborhoods": [r["neighborhood"] for r in neighborhoods],
-        "incidents": [dict(r) for r in incidents],
-        "resources": [dict(r) for r in resources],
-        "alerts": [dict(r) for r in alerts],
+        "neighborhoods": neighborhoods,
+        "incidents": incidents,
+        "resources": resources,
+        "alerts": alerts,
     }
 
 
@@ -122,7 +122,7 @@ Be specific and actionable. Use real shelter and facility names from the data.
 def _get_model():
     if GROQ_API_KEY:
         return LiteLlm(model="groq/llama-3.3-70b-versatile")
-    return "gemini-2.0-flash"
+    return "gemini-2.0-flash"  # ADK accepts bare string for Gemini models
 
 
 @router.post("/recovery/generate")
