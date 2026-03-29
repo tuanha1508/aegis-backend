@@ -122,7 +122,7 @@ Be specific and actionable. Use real shelter and facility names from the data.
 def _get_model():
     if GROQ_API_KEY:
         return LiteLlm(model="groq/llama-3.3-70b-versatile")
-    return "gemini-2.0-flash"  # ADK accepts bare string for Gemini models
+    return "gemini-2.5-flash"  # ADK accepts bare string for Gemini models
 
 
 @router.post("/recovery/generate")

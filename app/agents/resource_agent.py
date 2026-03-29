@@ -198,7 +198,7 @@ def _get_model():
     """Pick the best available model — Groq if key exists, else Gemini."""
     if GROQ_API_KEY:
         return LiteLlm(model="groq/llama-3.3-70b-versatile")
-    return "gemini-2.0-flash"
+    return "gemini-2.5-flash"
 
 
 def _build_resource_agent() -> Agent:
