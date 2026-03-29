@@ -42,6 +42,7 @@ def get_processed_reports() -> dict:
         rows = conn.execute(
             """SELECT * FROM reports
                WHERE processed = true
+                 AND COALESCE(incident_type, '') <> 'resource_status'
                ORDER BY created_at ASC"""
         ).fetchall()
     finally:

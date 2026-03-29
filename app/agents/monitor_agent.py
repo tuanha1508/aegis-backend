@@ -24,6 +24,7 @@ from google.genai import types
 
 from app.config import GEMINI_API_KEY, GROQ_API_KEY
 from app.db.database import get_connection
+from app.services import weather_service
 
 logger = logging.getLogger(__name__)
 
@@ -37,12 +38,9 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 def get_weather_data() -> dict:
     """Fetch the latest NOAA weather/storm data for Tampa Bay.
 
-    Returns:
-        dict: Storm information including name, category, wind speed,
-              trajectory, warnings, and tide data.
+    Delegates to weather_service so scenario steps and GET /monitor/weather match.
     """
-    with open(DATA_DIR / "sample_weather.json") as f:
-        return json.load(f)
+    return weather_service.get_weather_data()
 
 
 def get_zone_data() -> list[dict]:

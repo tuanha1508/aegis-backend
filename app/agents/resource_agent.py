@@ -6,11 +6,12 @@ import json
 import math
 import re
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import psycopg
 
-from app.config import DEMO_MODE, GEMINI_API_KEY
+from app.config import DEMO_MODE, GEMINI_API_KEY, GROQ_API_KEY
+from app.db.database import get_connection
 from app.services.resource_discovery_service import (
     ALLOWED_RESOURCE_TYPES,
     ResourceCandidate,
@@ -225,3 +226,38 @@ def run_resource_sync(conn: psycopg.Connection, *, run_id: UUID | None = None) -
         "demo_mode": DEMO_MODE,
         "candidates_seen": len(candidates),
     }
+
+
+def _get_model():
+    from google.adk.models.lite_llm import LiteLlm
+
+    if GROQ_API_KEY:
+        return LiteLlm(model="groq/llama-3.3-70b-versatile")
+    return "gemini-2.0-flash"
+
+
+def sync_discovered_resources() -> dict[str, Any]:
+    """ADK tool: upsert shelters/supply points from discovery (demo JSON or Overpass)."""
+    conn = get_connection()
+    rid = uuid4()
+    try:
+        result = run_resource_sync(conn, run_id=rid)
+        conn.commit()
+        return result
+    finally:
+        conn.close()
+
+
+def _build_resource_agent():
+    from google.adk.agents import Agent
+
+    return Agent(
+        name="resource_agent",
+        model=_get_model(),
+        description="Syncs discovered shelter and supply-point data into the resources table.",
+        instruction=(
+            "When asked to refresh resources, sync discovery, or update the resource database, "
+            "call sync_discovered_resources() once and summarize inserted/updated counts briefly."
+        ),
+        tools=[sync_discovered_resources],
+    )

@@ -20,7 +20,13 @@ def ensure_database_configured() -> None:
         )
 
 
-_MIGRATION_FILE = _REPO_ROOT / "supabase" / "migrations" / "20250328000000_initial_schema.sql"
+_MIGRATIONS_DIR = _REPO_ROOT / "supabase" / "migrations"
+
+
+def _migration_files() -> list[Path]:
+    if not _MIGRATIONS_DIR.is_dir():
+        return []
+    return sorted(_MIGRATIONS_DIR.glob("*.sql"))
 
 
 def _split_sql_statements(sql: str) -> list[str]:
@@ -49,13 +55,15 @@ def get_connection() -> psycopg.Connection:
 
 def init_db() -> None:
     ensure_database_configured()
-    if not _MIGRATION_FILE.is_file():
-        raise FileNotFoundError(f"Migration not found: {_MIGRATION_FILE}")
-    sql_text = _MIGRATION_FILE.read_text(encoding="utf-8")
+    paths = _migration_files()
+    if not paths:
+        raise FileNotFoundError(f"No SQL migrations in {_MIGRATIONS_DIR}")
     conn = get_connection()
     try:
-        for stmt in _split_sql_statements(sql_text):
-            conn.execute(stmt)
+        for path in paths:
+            sql_text = path.read_text(encoding="utf-8")
+            for stmt in _split_sql_statements(sql_text):
+                conn.execute(stmt)
         conn.execute(
             """INSERT INTO phase (id, current_phase)
                VALUES (1, 'pre_storm')

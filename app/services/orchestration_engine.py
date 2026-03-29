@@ -26,6 +26,27 @@ TICK_INTERVAL_SECONDS = 60  # Check every minute
 MONITOR_CADENCE_MINUTES = 10  # During storm watch/active
 POST_STORM_DAYS = 5
 
+# field_report must run before resource_intel in the same tick
+_JOB_ORDER = (
+    "field_report",
+    "resource_intel",
+    "monitor",
+    "severity",
+    "alerts",
+    "reunification",
+    "recovery",
+)
+
+
+def _sort_jobs(jobs: list[str]) -> list[str]:
+    def order_key(job: str) -> tuple[int, str]:
+        try:
+            return (_JOB_ORDER.index(job), job)
+        except ValueError:
+            return (99, job)
+
+    return sorted(jobs, key=order_key)
+
 # Background task handle
 _scheduler_task: asyncio.Task | None = None
 
@@ -63,6 +84,15 @@ def collect_signals() -> dict[str, Any]:
         missing_count = conn.execute(
             "SELECT COUNT(*) AS cnt FROM missing_persons WHERE status = 'missing'"
         ).fetchone()["cnt"]
+
+        pending_intel = conn.execute(
+            """
+            SELECT COUNT(*) AS cnt FROM reports
+            WHERE processed = TRUE
+              AND incident_type = 'resource_status'
+              AND COALESCE(resource_intel_applied, FALSE) = FALSE
+            """
+        ).fetchone()["cnt"]
     finally:
         conn.close()
 
@@ -73,6 +103,7 @@ def collect_signals() -> dict[str, Any]:
         "max_flood_risk": max_risk,
         "unmatched_found": unmatched_found,
         "missing_count": missing_count,
+        "pending_resource_intel": pending_intel,
         "orchestration_state": dict(orch) if orch else None,
     }
 
@@ -147,6 +178,7 @@ def determine_jobs(mode: str, signals: dict) -> list[str]:
     """Decide which agent jobs to run based on mode and cadence."""
     orch = signals.get("orchestration_state") or {}
     jobs = []
+    pending_intel = signals.get("pending_resource_intel") or 0
 
     if mode == "idle":
         return []
@@ -155,6 +187,8 @@ def determine_jobs(mode: str, signals: dict) -> list[str]:
         if _minutes_since(orch.get("last_monitor_run_at")) >= MONITOR_CADENCE_MINUTES:
             jobs.append("monitor")
             jobs.append("alerts")
+        if pending_intel > 0:
+            jobs.append("resource_intel")
 
     elif mode == "active_storm":
         if _minutes_since(orch.get("last_monitor_run_at")) >= MONITOR_CADENCE_MINUTES:
@@ -169,12 +203,19 @@ def determine_jobs(mode: str, signals: dict) -> list[str]:
         if _minutes_since(orch.get("last_alert_run_at")) >= MONITOR_CADENCE_MINUTES:
             jobs.append("alerts")
 
+        if pending_intel > 0:
+            jobs.append("resource_intel")
+
     elif mode == "post_storm":
         # Check 5-day window
         post_start = orch.get("post_storm_started_at")
         if post_start and _minutes_since(post_start) > POST_STORM_DAYS * 24 * 60:
-            # Past 5 days, only run if there's work
-            if signals["unprocessed_reports"] == 0 and signals["unresolved_incidents"] == 0:
+            # Past 5 days, only run if there's work (including pending resource intel)
+            if (
+                signals["unprocessed_reports"] == 0
+                and signals["unresolved_incidents"] == 0
+                and pending_intel == 0
+            ):
                 return []
 
         # Daily cadence for post-storm
@@ -184,6 +225,9 @@ def determine_jobs(mode: str, signals: dict) -> list[str]:
         if signals["unprocessed_reports"] > 0:
             jobs.append("field_report")
 
+        if pending_intel > 0:
+            jobs.append("resource_intel")
+
         if signals["missing_count"] > 0 and signals["unmatched_found"] > 0:
             if _minutes_since(orch.get("last_reunification_run_at")) >= 60:
                 jobs.append("reunification")
@@ -191,7 +235,7 @@ def determine_jobs(mode: str, signals: dict) -> list[str]:
         if _minutes_since(orch.get("last_recovery_run_at")) >= 24 * 60:
             jobs.append("recovery")
 
-    return jobs
+    return _sort_jobs(jobs)
 
 
 # ─── Job Execution ────────────────────────────────────────────
@@ -199,6 +243,7 @@ def determine_jobs(mode: str, signals: dict) -> list[str]:
 async def run_jobs(jobs: list[str]) -> dict[str, str]:
     """Execute the given agent jobs and update orchestration state timestamps."""
     results = {}
+    jobs = _sort_jobs(jobs)
 
     for job in jobs:
         try:
@@ -219,6 +264,12 @@ async def run_jobs(jobs: list[str]) -> dict[str, str]:
                 await run_field_report_agent()
                 _update_timestamp("last_report_process_at")
                 results[job] = "success"
+
+            elif job == "resource_intel":
+                from app.services.resource_intel_service import run_resource_intel
+                intel_result = await run_resource_intel()
+                _update_timestamp("last_resource_run_at")
+                results[job] = f"success {intel_result}"
 
             elif job == "severity":
                 from app.agents.severity_agent import run_severity_agent

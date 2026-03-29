@@ -11,7 +11,8 @@ from app.agents.resource_agent import run_resource_sync
 from app.config import DEMO_MODE
 from app.db.audit import insert_audit_log
 from app.db.database import get_connection
-from app.models.resource import ResourceUpdate
+from app.models.resource import ResourcePlanRequest, ResourcePlanResponse, ResourceUpdate
+from app.services.resource_plan_service import build_resource_plan, maybe_narrative
 
 router = APIRouter(tags=["resources"])
 
@@ -58,6 +59,25 @@ async def sync_resources():
         return {**result, "run_id": str(run_id), "status": "ok"}
     finally:
         conn.close()
+
+
+@router.post("/resources/plan", response_model=ResourcePlanResponse)
+async def plan_resources(body: ResourcePlanRequest):
+    """Suggest nearby open/limited resources by type for evacuation or supplies."""
+    try:
+        plan = build_resource_plan(
+            body.lat, body.lng, body.needs, max_miles=body.max_miles
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    narrative = maybe_narrative(plan)
+    return ResourcePlanResponse(
+        origin=plan["origin"],
+        max_miles=plan["max_miles"],
+        needs=plan["needs"],
+        recommendations=plan["recommendations"],
+        narrative=narrative,
+    )
 
 
 @router.get("/resources")
