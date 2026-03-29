@@ -359,23 +359,6 @@ async def run_field_report_agent_single(
     if GEMINI_API_KEY:
         os.environ.setdefault("GOOGLE_API_KEY", GEMINI_API_KEY)
 
-    agent = _build_field_report_agent()
-    session_service = InMemorySessionService()
-    runner = Runner(
-        agent=agent,
-        app_name=APP_NAME,
-        session_service=session_service,
-    )
-
-    user_id = "aegis_system"
-    session_id = f"sms_chat_{uuid.uuid4().hex[:8]}"
-
-    session = await session_service.create_session(
-        app_name=APP_NAME,
-        user_id=user_id,
-        session_id=session_id,
-    )
-
     # Build GPS context for the agent
     gps_context = ""
     if user_lat is not None and user_lng is not None:
@@ -387,33 +370,37 @@ async def run_field_report_agent_single(
             f"doesn't mention a specific street or landmark."
         )
 
-    user_message = types.Content(
-        role="user",
-        parts=[types.Part(text=(
-            f"A field report was just submitted (report ID: {report_id}):\n\n"
-            f"\"{raw_text}\"{gps_context}\n\n"
-            "1. Call get_tampa_locations() to load reference data.\n"
-            "2. Analyze this report and extract all fields.\n"
-            "3. For location_text, ALWAYS use a specific street name, landmark, "
-            "or neighborhood — NEVER use 'Unknown'. If the report doesn't mention "
-            "a location, use the GPS neighborhood above.\n"
-            "4. Call parse_report() to save the structured data.\n"
-            "5. After saving, respond with a brief, helpful acknowledgment message "
-            "that a disaster response bot would send back to the person who "
-            "submitted this report. Keep it under 2 sentences. Include what you "
-            "understood from their report and any immediate safety advice."
-        ))],
+    prompt = (
+        f"A field report was just submitted (report ID: {report_id}):\n\n"
+        f"\"{raw_text}\"{gps_context}\n\n"
+        "1. Call get_tampa_locations() to load reference data.\n"
+        "2. Analyze this report and extract all fields.\n"
+        "3. For location_text, ALWAYS use a specific street name, landmark, "
+        "or neighborhood — NEVER use 'Unknown'. If the report doesn't mention "
+        "a location, use the GPS neighborhood above.\n"
+        "4. Call parse_report() to save the structured data.\n"
+        "5. After saving, respond with a brief, helpful acknowledgment message "
+        "that a disaster response bot would send back to the person who "
+        "submitted this report. Keep it under 2 sentences. Include what you "
+        "understood from their report and any immediate safety advice."
     )
 
-    final_text = ""
+    # Try Groq first (fast ~3s), fall back to Gemini (~10s) on failure
+    from app.agents.safe_runner import run_agent_with_fallback
+
+    def build_with_model(model):
+        return Agent(
+            name="field_report_agent",
+            model=model,
+            description=_build_field_report_agent().description,
+            instruction=FIELD_REPORT_INSTRUCTION,
+            tools=[get_unprocessed_reports, get_tampa_locations, parse_report],
+        )
+
     try:
-        async for event in runner.run_async(
-            user_id=user_id,
-            session_id=session.id,
-            new_message=user_message,
-        ):
-            if event.is_final_response() and event.content and event.content.parts:
-                final_text = event.content.parts[0].text
+        final_text, used_fallback = await run_agent_with_fallback(
+            build_with_model, prompt, "sms_chat",
+        )
     except Exception as e:
         logger.error("Field Report Agent (single) error: %s", e)
         return {"status": "error", "error": str(e)}
