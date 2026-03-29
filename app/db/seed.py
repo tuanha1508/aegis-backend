@@ -21,12 +21,30 @@ _SEED_CLEAR_TABLES = [
 ]
 
 
+def clear_demo_tables() -> None:
+    """Delete demo rows from seed tables and reset phase; keeps schema (used by tests)."""
+    init_db()
+    conn = get_connection()
+    try:
+        for table in _SEED_CLEAR_TABLES:
+            conn.execute(f"DELETE FROM {table}")
+        conn.execute(
+            "UPDATE phase SET current_phase = 'pre_storm' WHERE id = 1"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def seed():
     init_db()
     conn = get_connection()
     try:
         for table in _SEED_CLEAR_TABLES:
             conn.execute(f"DELETE FROM {table}")
+        conn.execute(
+            "UPDATE phase SET current_phase = 'pre_storm' WHERE id = 1"
+        )
 
         with open(DATA_DIR / "tampa_zones.json") as f:
             zones = json.load(f)

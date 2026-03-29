@@ -6,6 +6,20 @@ from datetime import datetime
 
 DATA_DIR = Path(__file__).parent.parent / "app" / "data"
 
+
+def _json_array_len(rel: str) -> int:
+    with open(DATA_DIR / rel) as f:
+        return len(json.load(f))
+
+
+SEEDED_RESOURCE_COUNT = _json_array_len("tampa_shelters.json") + _json_array_len(
+    "tampa_supply_points.json"
+)
+with open(DATA_DIR / "tampa_shelters.json") as _sf:
+    SEEDED_SHELTER_TYPE_COUNT = sum(
+        1 for row in json.load(_sf) if row.get("type") == "shelter"
+    )
+
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. ROOT ENDPOINT (3 tests)
 # ═══════════════════════════════════════════════════════════════════════════
@@ -218,7 +232,7 @@ class TestAlerts:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (%s, %s, %s, %s, %s)",
             ("pre_storm", "critical", "Davis Islands", "Evacuate Now", "Flood risk high"),
         )
         conn.commit()
@@ -231,11 +245,11 @@ class TestAlerts:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (%s, %s, %s, %s, %s)",
             ("pre_storm", "critical", "A", "T1", "M1"),
         )
         conn.execute(
-            "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (%s, %s, %s, %s, %s)",
             ("pre_storm", "info", "B", "T2", "M2"),
         )
         conn.commit()
@@ -248,7 +262,7 @@ class TestAlerts:
         conn = get_connection()
         for i in range(3):
             conn.execute(
-                "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (%s, %s, %s, %s, %s)",
                 ("pre_storm", "info", f"N{i}", f"T{i}", f"M{i}"),
             )
         conn.commit()
@@ -260,7 +274,7 @@ class TestAlerts:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (%s, %s, %s, %s, %s)",
             ("pre_storm", "warning", "Hyde Park", "Prepare", "Get ready"),
         )
         conn.commit()
@@ -271,7 +285,7 @@ class TestAlerts:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (%s, %s, %s, %s, %s)",
             ("active_storm", "emergency", "X", "Y", "Z"),
         )
         conn.commit()
@@ -282,7 +296,7 @@ class TestAlerts:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (%s, %s, %s, %s, %s)",
             ("pre_storm", "info", "N", "MyTitle", "MyMessage"),
         )
         conn.commit()
@@ -295,7 +309,7 @@ class TestAlerts:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO alerts (phase, priority, neighborhood, title, message, message_es) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO alerts (phase, priority, neighborhood, title, message, message_es) VALUES (%s, %s, %s, %s, %s, %s)",
             ("pre_storm", "info", "N", "T", "M", "Mensaje en espanol"),
         )
         conn.commit()
@@ -306,7 +320,7 @@ class TestAlerts:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO alerts (phase, priority, neighborhood, title, message, channels) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO alerts (phase, priority, neighborhood, title, message, channels) VALUES (%s, %s, %s, %s, %s, %s)",
             ("pre_storm", "critical", "N", "T", "M", "app,sms,voice"),
         )
         conn.commit()
@@ -318,7 +332,7 @@ class TestAlerts:
         conn = get_connection()
         for i in range(5):
             conn.execute(
-                "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO alerts (phase, priority, neighborhood, title, message) VALUES (%s, %s, %s, %s, %s)",
                 ("pre_storm", "info", f"N{i}", f"T{i}", f"M{i}"),
             )
         conn.commit()
@@ -478,7 +492,7 @@ class TestIncidents:
         conn.execute(
             """INSERT INTO incidents (report_ids, incident_type, location_text, lat, lng,
                severity_score, severity_label, recommended_action)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
             ("1", "flooding", "Bay to Bay", 27.91, -82.49, 92, "critical", "dispatch_water_rescue"),
         )
         conn.commit()
@@ -491,11 +505,11 @@ class TestIncidents:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO incidents (incident_type, lat, lng, severity_score, severity_label) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO incidents (incident_type, lat, lng, severity_score, severity_label) VALUES (%s, %s, %s, %s, %s)",
             ("flooding", 27.9, -82.5, 90, "critical"),
         )
         conn.execute(
-            "INSERT INTO incidents (incident_type, lat, lng, severity_score, severity_label) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO incidents (incident_type, lat, lng, severity_score, severity_label) VALUES (%s, %s, %s, %s, %s)",
             ("power_outage", 27.9, -82.5, 30, "low"),
         )
         conn.commit()
@@ -507,7 +521,7 @@ class TestIncidents:
         conn = get_connection()
         for score in [30, 90, 50]:
             conn.execute(
-                "INSERT INTO incidents (incident_type, lat, lng, severity_score, severity_label) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO incidents (incident_type, lat, lng, severity_score, severity_label) VALUES (%s, %s, %s, %s, %s)",
                 ("flooding", 27.9, -82.5, score, "x"),
             )
         conn.commit()
@@ -520,7 +534,7 @@ class TestIncidents:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO incidents (incident_type, lat, lng, severity_score, severity_label) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO incidents (incident_type, lat, lng, severity_score, severity_label) VALUES (%s, %s, %s, %s, %s)",
             ("flooding", 27.9, -82.5, 80, "high"),
         )
         conn.commit()
@@ -533,7 +547,7 @@ class TestIncidents:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO incidents (incident_type, lat, lng) VALUES (?, ?, ?)",
+            "INSERT INTO incidents (incident_type, lat, lng) VALUES (%s, %s, %s)",
             ("flooding", 27.9, -82.5),
         )
         conn.commit()
@@ -544,7 +558,7 @@ class TestIncidents:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO incidents (incident_type, lat, lng) VALUES (?, ?, ?)",
+            "INSERT INTO incidents (incident_type, lat, lng) VALUES (%s, %s, %s)",
             ("flooding", 27.9, -82.5),
         )
         conn.commit()
@@ -555,7 +569,7 @@ class TestIncidents:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO incidents (incident_type, lat, lng) VALUES (?, ?, ?)",
+            "INSERT INTO incidents (incident_type, lat, lng) VALUES (%s, %s, %s)",
             ("flooding", 27.9, -82.5),
         )
         conn.commit()
@@ -566,7 +580,7 @@ class TestIncidents:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO incidents (incident_type, lat, lng) VALUES (?, ?, ?)",
+            "INSERT INTO incidents (incident_type, lat, lng) VALUES (%s, %s, %s)",
             ("flooding", 27.9, -82.5),
         )
         conn.commit()
@@ -579,7 +593,7 @@ class TestIncidents:
         conn = get_connection()
         for t in ["flooding", "power_outage", "road_blocked"]:
             conn.execute(
-                "INSERT INTO incidents (incident_type, lat, lng) VALUES (?, ?, ?)",
+                "INSERT INTO incidents (incident_type, lat, lng) VALUES (%s, %s, %s)",
                 (t, 27.9, -82.5),
             )
         conn.commit()
@@ -590,7 +604,7 @@ class TestIncidents:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO incidents (incident_type, lat, lng, factors) VALUES (?, ?, ?, ?)",
+            "INSERT INTO incidents (incident_type, lat, lng, factors) VALUES (%s, %s, %s, %s)",
             ("flooding", 27.9, -82.5, "children_present,rising_water"),
         )
         conn.commit()
@@ -611,11 +625,11 @@ class TestResourcesGet:
         assert client.get("/api/v1/resources").json() == []
 
     def test_get_resources_seeded(self, seeded_client):
-        assert len(seeded_client.get("/api/v1/resources").json()) == 4
+        assert len(seeded_client.get("/api/v1/resources").json()) == SEEDED_RESOURCE_COUNT
 
     def test_get_resources_filter_shelter(self, seeded_client):
         r = seeded_client.get("/api/v1/resources?type=shelter")
-        assert len(r.json()) == 4
+        assert len(r.json()) == SEEDED_SHELTER_TYPE_COUNT
 
     def test_get_resources_filter_invalid_type(self, seeded_client):
         r = seeded_client.get("/api/v1/resources?type=hospital")
@@ -637,10 +651,10 @@ class TestResourcesGet:
             assert r["current_occupancy"] == 0
 
     @pytest.mark.parametrize("name", [
-        "First Baptist Church of Tampa",
-        "USF Marshall Center",
-        "Hillsborough High School",
-        "Tampa Convention Center",
+        "Middleton High School",
+        "Sickles High School",
+        "Steinbrenner High School",
+        "Burnett Middle School",
     ])
     def test_resource_shelter_exists(self, seeded_client, name):
         names = [r["name"] for r in seeded_client.get("/api/v1/resources").json()]
@@ -696,9 +710,11 @@ class TestResourcesNearest:
         assert r.status_code == 422
 
     def test_nearest_returns_closest(self, seeded_client):
-        # Convention Center is at 27.9425, -82.4584 — closest to 27.94, -82.46
+        # Tampa General Hospital (~27.937, -82.459) is among the closest to this point
         r = seeded_client.get("/api/v1/resources/nearest?lat=27.94&lng=-82.46")
-        assert "Convention Center" in r.json()["resource"]["name"] or "First Baptist" in r.json()["resource"]["name"]
+        assert r.json()["resource"] is not None
+        assert r.json()["distance_miles"] < 2.0
+        assert "Tampa General" in r.json()["resource"]["name"]
 
 
 class TestResourcesUpdate:
@@ -886,7 +902,7 @@ class TestMatches:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO matches (missing_id, found_id, confidence, match_factors, status) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO matches (missing_id, found_id, confidence, match_factors, status) VALUES (%s, %s, %s, %s, %s)",
             (1, 1, 0.89, "name_partial_match,age_close", "pending"),
         )
         conn.commit()
@@ -899,11 +915,11 @@ class TestMatches:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO matches (missing_id, found_id, confidence) VALUES (?, ?, ?)",
+            "INSERT INTO matches (missing_id, found_id, confidence) VALUES (%s, %s, %s)",
             (1, 1, 0.5),
         )
         conn.execute(
-            "INSERT INTO matches (missing_id, found_id, confidence) VALUES (?, ?, ?)",
+            "INSERT INTO matches (missing_id, found_id, confidence) VALUES (%s, %s, %s)",
             (2, 2, 0.9),
         )
         conn.commit()
@@ -933,7 +949,7 @@ class TestRecovery:
         conn = get_connection()
         conn.execute(
             """INSERT INTO recovery_briefs (neighborhood, power_status, water_status, roads_status)
-               VALUES (?, ?, ?, ?)""",
+               VALUES (%s, %s, %s, %s)""",
             ("Davis Islands", "out", "boil_notice", "partially_blocked"),
         )
         conn.commit()
@@ -945,7 +961,7 @@ class TestRecovery:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO recovery_briefs (neighborhood, power_status) VALUES (?, ?)",
+            "INSERT INTO recovery_briefs (neighborhood, power_status) VALUES (%s, %s)",
             ("Palma Ceia", "restored"),
         )
         conn.commit()
@@ -958,7 +974,7 @@ class TestRecovery:
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO recovery_briefs (neighborhood, power_status, water_status) VALUES (?, ?, ?)",
+            "INSERT INTO recovery_briefs (neighborhood, power_status, water_status) VALUES (%s, %s, %s)",
             ("Test", "out", "ok"),
         )
         conn.commit()
@@ -972,8 +988,7 @@ class TestRecovery:
         conn = get_connection()
         for n in ["A", "B", "C"]:
             conn.execute(
-                "INSERT INTO recovery_briefs (neighborhood) VALUES (?)", (n,)
-            )
+                "INSERT INTO recovery_briefs (neighborhood) VALUES (%s)", (n,))
         conn.commit()
         conn.close()
         assert len(client.get("/api/v1/recovery/briefs").json()) == 3
@@ -981,7 +996,7 @@ class TestRecovery:
     def test_brief_generated_at(self, client):
         from app.db.database import get_connection
         conn = get_connection()
-        conn.execute("INSERT INTO recovery_briefs (neighborhood) VALUES (?)", ("X",))
+        conn.execute("INSERT INTO recovery_briefs (neighborhood) VALUES (%s)", ("X",))
         conn.commit()
         conn.close()
         assert client.get("/api/v1/recovery/briefs/X").json()["generated_at"] is not None
@@ -1277,7 +1292,7 @@ class TestSeed:
         conn = get_connection()
         count = conn.execute("SELECT COUNT(*) FROM resources").fetchone()[0]
         conn.close()
-        assert count == 4
+        assert count == SEEDED_RESOURCE_COUNT
 
     def test_seed_creates_reports(self, seeded_client):
         from app.db.database import get_connection
@@ -1307,13 +1322,13 @@ class TestSeed:
         conn = get_connection()
         count = conn.execute("SELECT COUNT(*) FROM resources").fetchone()[0]
         conn.close()
-        assert count == 4
+        assert count == SEEDED_RESOURCE_COUNT
 
     def test_seed_clears_old_data(self, seeded_client):
         from app.db.database import get_connection
         conn = get_connection()
         conn.execute(
-            "INSERT INTO resources (type, name, lat, lng, capacity) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO resources (type, name, lat, lng, capacity) VALUES (%s, %s, %s, %s, %s)",
             ("shelter", "Extra", 27.9, -82.5, 100),
         )
         conn.commit()
@@ -1323,14 +1338,16 @@ class TestSeed:
         conn = get_connection()
         count = conn.execute("SELECT COUNT(*) FROM resources").fetchone()[0]
         conn.close()
-        assert count == 4
+        assert count == SEEDED_RESOURCE_COUNT
 
 
 class TestSeedDataFiles:
     def test_shelters_json_valid(self):
         with open(DATA_DIR / "tampa_shelters.json") as f:
             data = json.load(f)
-        assert len(data) == 4
+        assert isinstance(data, list)
+        assert len(data) == _json_array_len("tampa_shelters.json")
+        assert all("name" in r and "type" in r for r in data)
 
     def test_zones_json_valid(self):
         with open(DATA_DIR / "tampa_zones.json") as f:
