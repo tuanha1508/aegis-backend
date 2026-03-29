@@ -191,9 +191,7 @@ by analyzing names, physical descriptions, ages, genders, and locations.
 
 
 def _get_model():
-    """Pick the best available model — Groq if key exists, else Gemini."""
-    if GROQ_API_KEY:
-        return LiteLlm(model="groq/llama-3.3-70b-versatile")
+    """Use Gemini — Groq fails on save_match multi-param tool calls."""
     return "gemini-2.5-flash"
 
 
