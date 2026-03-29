@@ -93,6 +93,23 @@ def get_tampa_locations() -> dict:
     }
 
 
+def _nearest_neighborhood(lat: float, lng: float) -> str:
+    """Find the nearest Tampa neighborhood name for given coordinates."""
+    import math
+    with open(DATA_DIR / "tampa_zones.json") as f:
+        zones = json.load(f)
+    best_name = "Tampa Bay Area"
+    best_dist = float("inf")
+    for z in zones:
+        dlat = lat - z["lat"]
+        dlng = lng - z["lng"]
+        dist = math.sqrt(dlat * dlat + dlng * dlng)
+        if dist < best_dist:
+            best_dist = dist
+            best_name = z["neighborhood"]
+    return best_name
+
+
 def parse_report(
     report_id: int,
     location_text: str,
@@ -108,6 +125,8 @@ def parse_report(
     Args:
         report_id: The database ID of the report to update.
         location_text: Human-readable location extracted from the report text.
+            Must be a specific street, landmark, or neighborhood name — never
+            "Unknown" or empty. If unsure, use the nearest Tampa neighborhood.
         lat: Latitude coordinate for the location (use Tampa reference data).
         lng: Longitude coordinate for the location (use Tampa reference data).
         incident_type: One of: 'flooding', 'trapped_person', 'road_blocked',
@@ -120,6 +139,13 @@ def parse_report(
     Returns:
         dict: Status and the updated report data.
     """
+    # Enrich: if location_text is vague, use nearest neighborhood
+    if not location_text or location_text.lower() in ("unknown", "n/a", "none", ""):
+        location_text = _nearest_neighborhood(lat, lng)
+
+    # Enrich: append nearest neighborhood for context
+    neighborhood = _nearest_neighborhood(lat, lng)
+
     conn = get_connection()
     try:
         conn.execute(
@@ -145,7 +171,9 @@ def parse_report(
         conn.close()
 
     if row:
-        return {"status": "success", "report": dict(row)}
+        result = dict(row)
+        result["neighborhood"] = neighborhood
+        return {"status": "success", "report": result}
     return {"status": "error", "message": f"Report {report_id} not found"}
 
 
@@ -164,9 +192,12 @@ used for incident tracking and emergency response.
 1. Call `get_unprocessed_reports()` to see all unprocessed field reports.
 2. Call `get_tampa_locations()` to load Tampa Bay reference locations for geocoding.
 3. For EACH unprocessed report, analyze the raw text and extract:
-   - **location_text**: The location mentioned (street, neighborhood, landmark)
+   - **location_text**: The specific location mentioned (street name, neighborhood,
+     or landmark). NEVER use "Unknown" — if no specific location is mentioned,
+     use the best-matching Tampa neighborhood from the reference data.
    - **lat/lng**: Geocode using the Tampa reference data. Match to the closest
-     known location (neighborhood, shelter, or landmark).
+     known location (neighborhood, shelter, or landmark). If the report mentions
+     a general area like "South Tampa", use that neighborhood's coordinates.
    - **incident_type**: Classify as one of: 'flooding', 'trapped_person',
      'road_blocked', 'power_outage', 'supply_needed', 'structural_damage',
      'medical_emergency', 'fire', 'looting', 'other'
@@ -300,11 +331,22 @@ async def run_field_report_agent() -> dict[str, Any]:
     }
 
 
-async def run_field_report_agent_single(report_id: int, raw_text: str) -> dict[str, Any]:
+async def run_field_report_agent_single(
+    report_id: int,
+    raw_text: str,
+    user_lat: float | None = None,
+    user_lng: float | None = None,
+) -> dict[str, Any]:
     """Process a single report interactively and return the AI's response.
 
     Used by the SMS chat simulator — processes one report and returns
     a conversational AI reply along with the structured data.
+
+    Args:
+        report_id: DB id of the stored report.
+        raw_text: The raw message text.
+        user_lat: GPS latitude from the user's device (if available).
+        user_lng: GPS longitude from the user's device (if available).
     """
     if GROQ_API_KEY:
         os.environ.setdefault("GROQ_API_KEY", GROQ_API_KEY)
@@ -328,15 +370,29 @@ async def run_field_report_agent_single(report_id: int, raw_text: str) -> dict[s
         session_id=session_id,
     )
 
+    # Build GPS context for the agent
+    gps_context = ""
+    if user_lat is not None and user_lng is not None:
+        neighborhood = _nearest_neighborhood(user_lat, user_lng)
+        gps_context = (
+            f"\n\nThe user's GPS location is: lat={user_lat}, lng={user_lng} "
+            f"(near {neighborhood}). Use these exact coordinates for lat/lng "
+            f"and use '{neighborhood}' as the location_text if the message "
+            f"doesn't mention a specific street or landmark."
+        )
+
     user_message = types.Content(
         role="user",
         parts=[types.Part(text=(
             f"A field report was just submitted (report ID: {report_id}):\n\n"
-            f"\"{raw_text}\"\n\n"
+            f"\"{raw_text}\"{gps_context}\n\n"
             "1. Call get_tampa_locations() to load reference data.\n"
             "2. Analyze this report and extract all fields.\n"
-            "3. Call parse_report() to save the structured data.\n"
-            "4. After saving, respond with a brief, helpful acknowledgment message "
+            "3. For location_text, ALWAYS use a specific street name, landmark, "
+            "or neighborhood — NEVER use 'Unknown'. If the report doesn't mention "
+            "a location, use the GPS neighborhood above.\n"
+            "4. Call parse_report() to save the structured data.\n"
+            "5. After saving, respond with a brief, helpful acknowledgment message "
             "that a disaster response bot would send back to the person who "
             "submitted this report. Keep it under 2 sentences. Include what you "
             "understood from their report and any immediate safety advice."
@@ -356,12 +412,18 @@ async def run_field_report_agent_single(report_id: int, raw_text: str) -> dict[s
         logger.error("Field Report Agent (single) error: %s", e)
         return {"status": "error", "error": str(e)}
 
-    # Fetch the updated report
+    # Fetch the updated report and enrich with neighborhood
     conn = get_connection()
-    row = conn.execute("SELECT * FROM reports WHERE id = %s", (report_id,)).fetchone()
-    conn.close()
+    try:
+        row = conn.execute("SELECT * FROM reports WHERE id = %s", (report_id,)).fetchone()
+    finally:
+        conn.close()
 
-    report = dict(row) if row else None
+    report = None
+    if row:
+        report = dict(row)
+        if report.get("lat") and report.get("lng"):
+            report["neighborhood"] = _nearest_neighborhood(report["lat"], report["lng"])
 
     return {
         "status": "success",

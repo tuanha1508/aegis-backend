@@ -338,47 +338,132 @@ async def get_news_feed() -> dict:
         except (httpx.HTTPError, ET.ParseError) as e:
             logger.warning("NWS Atom feed failed: %s", e)
 
-        # 3. FEMA recent FL declarations
+        # 3. FEMA recent FL declarations (deduplicate by disaster number)
         try:
             resp = await client.get(
                 "https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries",
-                params={"$filter": "state eq 'FL'", "$orderby": "declarationDate desc", "$top": "5"},
+                params={"$filter": "state eq 'FL'", "$orderby": "declarationDate desc", "$top": "20"},
             )
             if resp.status_code == 200:
+                seen_disasters: set[str] = set()
                 for dec in resp.json().get("DisasterDeclarationsSummaries", []):
-                    title = f"FEMA Disaster: {dec.get('declarationTitle', '')}"
+                    disaster_num = str(dec.get("disasterNumber", ""))
+                    if disaster_num in seen_disasters:
+                        continue
+                    seen_disasters.add(disaster_num)
+                    title_name = dec.get("declarationTitle", "")
                     items.append({
                         "source": "FEMA",
-                        "title": title,
-                        "summary": f"{dec.get('incidentType', '')} — {dec.get('designatedArea', '')}",
-                        "url": f"https://www.fema.gov/disaster/{dec.get('disasterNumber', '')}",
+                        "title": f"FEMA: {title_name}",
+                        "summary": f"{dec.get('incidentType', '')} — declared {dec.get('declarationDate', '')[:10]} — {dec.get('designatedArea', '')}",
+                        "url": f"https://www.fema.gov/disaster/{disaster_num}",
                         "published_at": dec.get("declarationDate", ""),
-                        "severity": "moderate",
-                        "category": _categorize(title),
+                        "severity": "severe" if "hurricane" in title_name.lower() else "moderate",
+                        "category": _categorize(title_name),
                     })
+                    if len(seen_disasters) >= 5:
+                        break
         except (httpx.HTTPError, KeyError, ValueError) as e:
             logger.warning("FEMA API fetch failed: %s", e)
 
-        # 4. USGS Water Alert RSS for Florida
+        # 4. FOX 13 Tampa Bay RSS (always has content)
         try:
-            resp = await client.get("https://water.usgs.gov/wateralert/feeds/FL.xml")
+            resp = await client.get("https://www.fox13news.com/rss/category/news")
             if resp.status_code == 200:
                 root = ET.fromstring(resp.text)
-                for item in root.findall(".//item"):
+                for item in root.findall(".//item")[:8]:
                     title = item.findtext("title", "")
-                    desc = item.findtext("description", "")
-                    if any(k in (title + desc).lower() for k in ("tampa", "hillsborough", "02304500", "02301500")):
-                        items.append({
-                            "source": "USGS Water Alert",
-                            "title": title,
-                            "summary": desc[:300],
-                            "url": item.findtext("link", ""),
-                            "published_at": item.findtext("pubDate", ""),
-                            "severity": "severe" if "flood" in title.lower() else "moderate",
-                            "category": _categorize(title),
-                        })
+                    items.append({
+                        "source": "FOX 13 Tampa",
+                        "title": title,
+                        "summary": (item.findtext("description", "") or "")[:300],
+                        "url": item.findtext("link", ""),
+                        "published_at": item.findtext("pubDate", ""),
+                        "severity": "moderate",
+                        "category": _categorize(title),
+                    })
         except (httpx.HTTPError, ET.ParseError) as e:
-            logger.warning("USGS RSS fetch failed: %s", e)
+            logger.warning("FOX 13 RSS fetch failed: %s", e)
+
+        # 5. WTSP 10 Tampa Bay RSS (always has content)
+        try:
+            resp = await client.get("https://www.wtsp.com/feeds/syndication/rss/news")
+            if resp.status_code == 200:
+                root = ET.fromstring(resp.text)
+                for item in root.findall(".//item")[:8]:
+                    title = item.findtext("title", "")
+                    items.append({
+                        "source": "WTSP Tampa",
+                        "title": title,
+                        "summary": (item.findtext("description", "") or "")[:300],
+                        "url": item.findtext("link", ""),
+                        "published_at": item.findtext("pubDate", ""),
+                        "severity": "minor",
+                        "category": _categorize(title),
+                    })
+        except (httpx.HTTPError, ET.ParseError) as e:
+            logger.warning("WTSP RSS fetch failed: %s", e)
+
+        # 6. NWS Florida-wide active alerts (always has something)
+        try:
+            resp = await client.get(
+                "https://api.weather.gov/alerts/active?area=FL",
+                headers=NWS_HEADERS,
+            )
+            if resp.status_code == 200:
+                for feat in resp.json().get("features", [])[:5]:
+                    p = feat.get("properties", {})
+                    headline = p.get("headline", "")
+                    items.append({
+                        "source": "NWS Florida",
+                        "title": p.get("event", "Weather Alert"),
+                        "summary": headline[:300],
+                        "url": p.get("@id", ""),
+                        "published_at": p.get("onset", ""),
+                        "severity": p.get("severity", "moderate").lower(),
+                        "category": _categorize(p.get("event", "")),
+                    })
+        except (httpx.HTTPError, KeyError) as e:
+            logger.warning("NWS FL alerts fetch failed: %s", e)
+
+        # 7. NWS Tampa Bay forecast discussion (latest)
+        try:
+            resp = await client.get(
+                "https://api.weather.gov/products/types/AFD/locations/TBW",
+                headers=NWS_HEADERS,
+            )
+            if resp.status_code == 200:
+                products = resp.json().get("@graph", [])[:1]
+                for prod in products:
+                    prod_url = prod.get("@id", "")
+                    if prod_url:
+                        detail = await client.get(prod_url, headers=NWS_HEADERS)
+                        if detail.status_code == 200:
+                            text = detail.json().get("productText", "")
+                            items.append({
+                                "source": "NWS Forecast",
+                                "title": "Tampa Bay Area Forecast Discussion",
+                                "summary": text[:300].replace("\n", " "),
+                                "url": prod_url,
+                                "published_at": prod.get("issuanceTime", ""),
+                                "severity": "minor",
+                                "category": "other",
+                            })
+        except (httpx.HTTPError, KeyError) as e:
+            logger.warning("NWS AFD fetch failed: %s", e)
+
+    # Deduplicate by title and filter out generic filler
+    seen_titles: set[str] = set()
+    deduped: list[dict] = []
+    for item in items:
+        title = item["title"].strip().lower()
+        # Skip generic NHC filler
+        if "hurricane season runs from" in title:
+            continue
+        if title not in seen_titles:
+            seen_titles.add(title)
+            deduped.append(item)
+    items = deduped
 
     # Sort newest first, limit 20
     items.sort(key=lambda x: x.get("published_at", ""), reverse=True)

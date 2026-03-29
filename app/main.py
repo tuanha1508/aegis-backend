@@ -1,9 +1,24 @@
+import json as _json
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+
+class _SafeEncoder(_json.JSONEncoder):
+    """JSON encoder that handles datetime objects from psycopg."""
+    def default(self, obj):
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        return super().default(obj)
+
+
+class SafeJSONResponse(JSONResponse):
+    def render(self, content) -> bytes:
+        return _json.dumps(content, cls=_SafeEncoder, ensure_ascii=False).encode("utf-8")
 
 from app.api import (
     routes_phase,
@@ -39,8 +54,8 @@ async def lifespan(app: FastAPI):
     finally:
         conn.close()
 
-    # Start background scheduler if AUTO_ORCHESTRATE is enabled
-    if os.getenv("AUTO_ORCHESTRATE", "").lower() in ("1", "true", "yes"):
+    # Start background scheduler (disable with AUTO_ORCHESTRATE=false)
+    if os.getenv("AUTO_ORCHESTRATE", "true").lower() not in ("0", "false", "no"):
         from app.services.orchestration_engine import start_scheduler
         start_scheduler()
 
@@ -55,6 +70,7 @@ app = FastAPI(
     title="Aegis",
     description="Multi-agent disaster intelligence for Tampa Bay",
     lifespan=lifespan,
+    default_response_class=SafeJSONResponse,
 )
 
 app.add_middleware(
@@ -89,3 +105,14 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
+
+# ─── A2A Agent Discovery ──────────────────────────────────────
+# Serves the agent card at the standard well-known path for A2A discovery
+
+@app.get("/.well-known/agent.json")
+@app.get("/.well-known/agent-card.json")
+async def a2a_agent_card():
+    """A2A Agent Card — describes all Aegis specialist agents for discovery."""
+    from app.a2a.agent_cards import get_aegis_agent_card
+    return get_aegis_agent_card()

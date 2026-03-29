@@ -54,3 +54,16 @@ async def rank_incidents():
         conn.close()
 
     return {**payload, "run_id": str(run_id)}
+
+
+@router.post("/incidents/verify")
+async def verify_incidents():
+    """Trigger the Verification LoopAgent to review and self-correct severity scores.
+
+    Uses ADK LoopAgent for iterative self-correction — the agent reviews
+    each severity score, corrects errors, and loops until all are validated.
+    """
+    from app.agents.verification_agent import run_verification_agent
+
+    result = await run_verification_agent()
+    return result
