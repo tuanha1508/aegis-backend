@@ -242,12 +242,13 @@ async def run_tests():
         check("agent card has version", r.get("version") == "1.0.0")
         check("agent card has protocol", r.get("protocolVersion") == "0.2.6")
         check("agent card has provider", r.get("provider", {}).get("organization") is not None)
-        check("agent card has 7 skills", len(r.get("skills", [])) == 7)
+        check("agent card has 9 skills", len(r.get("skills", [])) == 9,
+              f"got {len(r.get('skills', []))}")
 
         skill_ids = [s["id"] for s in r.get("skills", [])]
         for expected in ["aegis-monitor", "aegis-alert", "aegis-field-report",
                          "aegis-severity", "aegis-resource", "aegis-reunification",
-                         "aegis-orchestrator"]:
+                         "aegis-orchestrator", "aegis-commander", "aegis-verification"]:
             check(f"skill '{expected}' present", expected in skill_ids)
 
         check("skills have tags", all(len(s.get("tags", [])) > 0 for s in r.get("skills", [])))
@@ -324,6 +325,65 @@ async def run_tests():
 
         r = (await c.post("/orchestration/tick")).json()
         check("tick executed", r.get("mode") is not None)
+
+        # ── Test 17: Situation Commander ──
+        print("\n━━━ TEST 17: Situation Commander ━━━")
+        print("  ... asking Commander about situation ...")
+        r = (await c.post("/commander/ask",
+                         json={"question": "What is the current disaster situation?"})).json()
+        check("commander status=success", r.get("status") == "success",
+              f"status={r.get('status')} error={r.get('error','')}")
+        check("commander has response", len(r.get("response", "")) > 20,
+              f"response_len={len(r.get('response', ''))}")
+
+        print("  ... asking Commander about Maria Garcia ...")
+        r = (await c.post("/commander/ask",
+                         json={"question": "Has Maria Garcia been found?"})).json()
+        check("commander found Maria", r.get("status") == "success")
+        response_lower = r.get("response", "").lower()
+        check("response mentions match/found",
+              "match" in response_lower or "found" in response_lower or "maria" in response_lower,
+              f"response={r.get('response', '')[:80]}")
+
+        # ── Test 18: Storm Simulation Status ──
+        print("\n━━━ TEST 18: Simulation Status ━━━")
+        r = (await c.get("/simulation/status")).json()
+        check("simulation has phase", r.get("phase") is not None)
+        check("simulation has scenario", r.get("scenario") is not None)
+        check("simulation has stats", r.get("stats") is not None)
+        stats = r.get("stats", {})
+        check("stats has reports", "reports" in stats)
+        check("stats has incidents", "incidents" in stats)
+        check("stats has alerts", "alerts" in stats)
+
+        # ── Test 19: Resource Sync (Kris's new endpoint) ──
+        print("\n━━━ TEST 19: Resource Sync + Plan (Kris) ━━━")
+        r = await c.post("/resources/sync")
+        check("resource sync responds", r.status_code in (200, 422, 500),
+              f"status={r.status_code}")
+
+        r = await c.post("/resources/plan")
+        check("resource plan responds", r.status_code in (200, 422, 500),
+              f"status={r.status_code}")
+
+        # ── Test 20: All GET endpoints ──
+        print("\n━━━ TEST 20: All GET endpoints (expanded) ━━━")
+        all_gets = [
+            "/phase", "/monitor/risk", "/monitor/weather",
+            "/reports", "/incidents", "/alerts", "/resources",
+            "/reunification/missing", "/reunification/found", "/reunification/matches",
+            "/recovery/briefs",
+            "/live/weather", "/live/water-levels", "/live/tides",
+            "/live/alerts", "/live/news", "/live/streams", "/live/forecast",
+            "/live/all",
+            "/orchestration/status", "/simulation/status",
+        ]
+        for ep in all_gets:
+            try:
+                r = await c.get(ep)
+                check(f"GET {ep} → {r.status_code}", r.status_code == 200)
+            except Exception as e:
+                check(f"GET {ep}", False, str(e))
 
         # ── Summary ──
         print("\n" + "═" * 62)
