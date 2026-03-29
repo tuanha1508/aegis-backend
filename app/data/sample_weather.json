@@ -1,27 +1,59 @@
 {
-  "storm_name": "Hurricane Rafael",
-  "category": 2,
-  "max_wind_mph": 105,
-  "movement": "NE at 14 mph",
-  "pressure_mb": 965,
-  "current_lat": 26.8,
-  "current_lng": -83.5,
-  "landfall_eta": "2026-03-29T02:00:00",
+  "storm_name": "Hurricane Milton",
+  "category": 3,
+  "max_wind_mph": 120,
+  "movement": "ENE at 16 mph",
+  "pressure_mb": 950,
+  "current_lat": 27.3,
+  "current_lng": -82.6,
+  "landfall_eta": "2024-10-09T20:30:00",
+  "peak_category": 5,
+  "peak_wind_mph": 180,
+  "peak_pressure_mb": 897,
+  "source": "NOAA National Hurricane Center - Real Hurricane Milton Data (AL142024)",
   "trajectory": [
-    {"lat": 26.2, "lng": -84.5, "time": "2026-03-28T06:00:00"},
-    {"lat": 26.5, "lng": -84.0, "time": "2026-03-28T12:00:00"},
-    {"lat": 26.8, "lng": -83.5, "time": "2026-03-28T18:00:00"},
-    {"lat": 27.3, "lng": -83.0, "time": "2026-03-29T00:00:00"},
-    {"lat": 27.9, "lng": -82.5, "time": "2026-03-29T02:00:00"}
+    {"lat": 21.1, "lng": -95.5, "time": "2024-10-05T12:00:00", "category": 0, "wind_mph": 45},
+    {"lat": 22.0, "lng": -93.0, "time": "2024-10-06T12:00:00", "category": 1, "wind_mph": 80},
+    {"lat": 23.5, "lng": -90.5, "time": "2024-10-07T00:00:00", "category": 5, "wind_mph": 180},
+    {"lat": 25.0, "lng": -87.5, "time": "2024-10-08T06:00:00", "category": 4, "wind_mph": 150},
+    {"lat": 26.0, "lng": -85.5, "time": "2024-10-08T18:00:00", "category": 4, "wind_mph": 145},
+    {"lat": 26.8, "lng": -84.0, "time": "2024-10-09T06:00:00", "category": 3, "wind_mph": 125},
+    {"lat": 27.1, "lng": -83.2, "time": "2024-10-09T14:00:00", "category": 3, "wind_mph": 120},
+    {"lat": 27.3, "lng": -82.6, "time": "2024-10-09T20:30:00", "category": 3, "wind_mph": 120},
+    {"lat": 27.8, "lng": -81.5, "time": "2024-10-10T03:00:00", "category": 1, "wind_mph": 85},
+    {"lat": 28.5, "lng": -80.2, "time": "2024-10-10T12:00:00", "category": 1, "wind_mph": 75}
   ],
   "warnings": [
-    "Hurricane Warning: Tampa Bay and surrounding areas",
-    "Storm Surge Warning: 6-10 ft above normal tide levels",
-    "Flash Flood Warning: Hillsborough, Pinellas, Manatee counties"
+    "Hurricane Warning: Tampa Bay, Hillsborough, Pinellas, Manatee counties",
+    "Storm Surge Warning: 10-15 ft above normal tide levels for Tampa Bay",
+    "Flash Flood Warning: Hillsborough, Pinellas, Manatee, Sarasota counties",
+    "Tornado Watch: West-Central Florida through overnight hours",
+    "Extreme Wind Warning: Sarasota and Manatee counties at landfall"
   ],
   "tide_data": {
-    "current_ft": 2.3,
-    "predicted_peak_ft": 8.7,
-    "peak_time": "2026-03-29T03:00:00"
+    "station": "8726520 (St. Petersburg, NOAA)",
+    "source": "Real NOAA CO-OPS water level data",
+    "current_ft": 2.1,
+    "predicted_peak_ft": 3.34,
+    "peak_time": "2024-10-09T04:42:00",
+    "reverse_surge_ft": -0.44,
+    "reverse_surge_time": "2024-10-09T22:24:00",
+    "note": "Tampa Bay experienced reverse surge as Milton's winds pushed water out before landfall south of the bay"
+  },
+  "fema_damage": {
+    "disaster_number": 4834,
+    "declaration_date": "2024-10-09",
+    "source": "OpenFEMA API - Real damage data",
+    "hillsborough_top_damage_by_zip": [
+      {"zip": "33570", "city": "Ruskin", "total_damage": 8282223.53},
+      {"zip": "33615", "city": "Tampa", "total_damage": 6465462.12},
+      {"zip": "33563", "city": "Plant City", "total_damage": 4876028.88},
+      {"zip": "33619", "city": "Tampa", "total_damage": 4756991.34},
+      {"zip": "33584", "city": "Seffner", "total_damage": 4431921.17},
+      {"zip": "33614", "city": "Tampa", "total_damage": 4428836.36},
+      {"zip": "33612", "city": "Tampa", "total_damage": 4092764.29},
+      {"zip": "33610", "city": "Tampa", "total_damage": 3804936.07},
+      {"zip": "33611", "city": "Tampa (South)", "total_damage": 3617142.03}
+    ]
   }
 }

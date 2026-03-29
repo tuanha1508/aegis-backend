@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +16,7 @@ from app.api import (
     routes_sms,
     routes_assignments,
     routes_audit,
+    routes_live,
 )
 from app.db.database import init_db
 
@@ -51,8 +53,14 @@ app.include_router(routes_recovery.router, prefix=PREFIX)
 app.include_router(routes_sms.router, prefix=PREFIX)
 app.include_router(routes_assignments.router, prefix=PREFIX)
 app.include_router(routes_audit.router, prefix=PREFIX)
+app.include_router(routes_live.router, prefix=PREFIX)
 
 
 @app.get("/")
 async def root():
     return {"name": "Aegis", "status": "operational"}
+
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
