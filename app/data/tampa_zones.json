@@ -1,53 +1,91 @@
 [
   {
-    "neighborhood": "Palma Ceia",
-    "zone": "A",
-    "lat": 27.9234,
-    "lng": -82.4968,
-    "flood_risk": 0.78,
-    "storm_surge_ft": 6.2,
-    "time_to_impact_hours": 18,
-    "recommendation": "evacuate"
-  },
-  {
     "neighborhood": "Davis Islands",
     "zone": "A",
     "lat": 27.9210,
     "lng": -82.4630,
-    "flood_risk": 0.85,
-    "storm_surge_ft": 7.5,
-    "time_to_impact_hours": 16,
-    "recommendation": "evacuate"
+    "flood_risk": 0.92,
+    "storm_surge_ft": 10.5,
+    "time_to_impact_hours": 14,
+    "recommendation": "evacuate",
+    "fema_damage_context": "Zone A - highest storm surge risk, surrounded by water"
   },
   {
-    "neighborhood": "Channelside",
+    "neighborhood": "Palma Ceia",
     "zone": "A",
-    "lat": 27.9430,
-    "lng": -82.4490,
-    "flood_risk": 0.72,
-    "storm_surge_ft": 5.8,
-    "time_to_impact_hours": 18,
-    "recommendation": "evacuate"
+    "lat": 27.9234,
+    "lng": -82.4968,
+    "flood_risk": 0.88,
+    "storm_surge_ft": 8.2,
+    "time_to_impact_hours": 15,
+    "recommendation": "evacuate",
+    "fema_damage_context": "Zone A - low elevation near Bayshore Blvd"
   },
   {
     "neighborhood": "South Tampa",
     "zone": "A",
     "lat": 27.9100,
     "lng": -82.4900,
-    "flood_risk": 0.81,
-    "storm_surge_ft": 6.8,
-    "time_to_impact_hours": 17,
-    "recommendation": "evacuate"
+    "flood_risk": 0.85,
+    "storm_surge_ft": 9.0,
+    "time_to_impact_hours": 14,
+    "recommendation": "evacuate",
+    "fema_damage_context": "ZIP 33611 - $3.6M real FEMA damage from Milton"
+  },
+  {
+    "neighborhood": "Channelside",
+    "zone": "A",
+    "lat": 27.9430,
+    "lng": -82.4490,
+    "flood_risk": 0.82,
+    "storm_surge_ft": 8.5,
+    "time_to_impact_hours": 15,
+    "recommendation": "evacuate",
+    "fema_damage_context": "Zone A - downtown waterfront, critical infrastructure"
+  },
+  {
+    "neighborhood": "Ruskin",
+    "zone": "A",
+    "lat": 27.7216,
+    "lng": -82.4312,
+    "flood_risk": 0.90,
+    "storm_surge_ft": 11.0,
+    "time_to_impact_hours": 12,
+    "recommendation": "evacuate",
+    "fema_damage_context": "ZIP 33570 - $8.3M real FEMA damage from Milton (highest in county)"
   },
   {
     "neighborhood": "Hyde Park",
     "zone": "B",
     "lat": 27.9400,
     "lng": -82.4750,
+    "flood_risk": 0.65,
+    "storm_surge_ft": 5.5,
+    "time_to_impact_hours": 18,
+    "recommendation": "shelter_in_place",
+    "fema_damage_context": "Zone B - moderate risk, inland from Bayshore"
+  },
+  {
+    "neighborhood": "Ybor City",
+    "zone": "B",
+    "lat": 27.9600,
+    "lng": -82.4370,
+    "flood_risk": 0.58,
+    "storm_surge_ft": 4.5,
+    "time_to_impact_hours": 18,
+    "recommendation": "shelter_in_place",
+    "fema_damage_context": "Zone B - historic district, moderate flood risk"
+  },
+  {
+    "neighborhood": "Westshore",
+    "zone": "B",
+    "lat": 27.9550,
+    "lng": -82.5250,
     "flood_risk": 0.55,
-    "storm_surge_ft": 3.5,
-    "time_to_impact_hours": 20,
-    "recommendation": "shelter_in_place"
+    "storm_surge_ft": 4.0,
+    "time_to_impact_hours": 18,
+    "recommendation": "shelter_in_place",
+    "fema_damage_context": "ZIP 33615 - $6.5M real FEMA damage from Milton"
   },
   {
     "neighborhood": "Seminole Heights",
@@ -55,9 +93,10 @@
     "lat": 27.9945,
     "lng": -82.4572,
     "flood_risk": 0.42,
-    "storm_surge_ft": 2.1,
-    "time_to_impact_hours": 22,
-    "recommendation": "shelter_in_place"
+    "storm_surge_ft": 2.5,
+    "time_to_impact_hours": 20,
+    "recommendation": "shelter_in_place",
+    "fema_damage_context": "Zone C - elevated inland area, wind damage primary risk"
   },
   {
     "neighborhood": "Temple Terrace",
@@ -66,17 +105,30 @@
     "lng": -82.3890,
     "flood_risk": 0.30,
     "storm_surge_ft": 1.5,
-    "time_to_impact_hours": 24,
-    "recommendation": "monitor"
+    "time_to_impact_hours": 22,
+    "recommendation": "monitor",
+    "fema_damage_context": "Zone C - inland, lower flood risk"
   },
   {
-    "neighborhood": "Ybor City",
+    "neighborhood": "Plant City",
+    "zone": "D",
+    "lat": 28.0153,
+    "lng": -82.1198,
+    "flood_risk": 0.35,
+    "storm_surge_ft": 0.5,
+    "time_to_impact_hours": 22,
+    "recommendation": "monitor",
+    "fema_damage_context": "ZIP 33563 - $4.9M real FEMA damage from Milton (inland flooding/wind)"
+  },
+  {
+    "neighborhood": "Riverview",
     "zone": "B",
-    "lat": 27.9600,
-    "lng": -82.4370,
-    "flood_risk": 0.50,
-    "storm_surge_ft": 3.0,
-    "time_to_impact_hours": 20,
-    "recommendation": "shelter_in_place"
+    "lat": 27.8625,
+    "lng": -82.3237,
+    "flood_risk": 0.60,
+    "storm_surge_ft": 5.0,
+    "time_to_impact_hours": 16,
+    "recommendation": "shelter_in_place",
+    "fema_damage_context": "ZIP 33569 - significant Milton damage, near Alafia River"
   }
 ]

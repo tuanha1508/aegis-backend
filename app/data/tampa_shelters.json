@@ -1,38 +1,192 @@
 [
   {
-    "name": "First Baptist Church of Tampa",
+    "name": "Middleton High School",
     "type": "shelter",
-    "lat": 27.9506,
-    "lng": -82.4572,
-    "address": "302 W Kennedy Blvd, Tampa, FL 33606",
-    "capacity": 200,
-    "amenities": "hot_meals,medical_station,pet_friendly,charging"
-  },
-  {
-    "name": "USF Marshall Center",
-    "type": "shelter",
-    "lat": 28.0587,
-    "lng": -82.4137,
-    "address": "4103 USF Cedar Dr, Tampa, FL 33620",
-    "capacity": 350,
-    "amenities": "hot_meals,charging,wifi"
-  },
-  {
-    "name": "Hillsborough High School",
-    "type": "shelter",
-    "lat": 27.9686,
-    "lng": -82.4620,
-    "address": "5000 N Central Ave, Tampa, FL 33603",
-    "capacity": 150,
-    "amenities": "hot_meals,charging"
-  },
-  {
-    "name": "Tampa Convention Center",
-    "type": "shelter",
-    "lat": 27.9425,
-    "lng": -82.4584,
-    "address": "333 S Franklin St, Tampa, FL 33602",
+    "lat": 27.9876,
+    "lng": -82.4367,
+    "address": "4801 N. 22nd St., Tampa, FL 33610",
     "capacity": 500,
-    "amenities": "hot_meals,medical_station,charging,wifi,pet_friendly"
+    "amenities": "hot_meals,charging,pet_friendly,wifi",
+    "source": "Hurricane Milton 2024 - Hillsborough County"
+  },
+  {
+    "name": "Sickles High School",
+    "type": "shelter",
+    "lat": 28.0745,
+    "lng": -82.5805,
+    "address": "7950 Gunn Hwy., Tampa, FL 33625",
+    "capacity": 500,
+    "amenities": "hot_meals,charging,pet_friendly,wifi",
+    "source": "Hurricane Milton 2024 - Hillsborough County"
+  },
+  {
+    "name": "Steinbrenner High School",
+    "type": "shelter",
+    "lat": 28.1447,
+    "lng": -82.5125,
+    "address": "5575 W. Lutz Lake Fern Rd., Lutz, FL 33558",
+    "capacity": 500,
+    "amenities": "hot_meals,charging,pet_friendly,wifi",
+    "source": "Hurricane Milton 2024 - Hillsborough County"
+  },
+  {
+    "name": "Burnett Middle School",
+    "type": "shelter",
+    "lat": 27.9943,
+    "lng": -82.2812,
+    "address": "1010 N. Kingsway Rd., Seffner, FL 33584",
+    "capacity": 300,
+    "amenities": "hot_meals,charging,pet_friendly",
+    "source": "Hurricane Milton 2024 - Hillsborough County"
+  },
+  {
+    "name": "Durant High School",
+    "type": "shelter",
+    "lat": 27.9861,
+    "lng": -82.1264,
+    "address": "4748 Cougar Path, Plant City, FL 33567",
+    "capacity": 500,
+    "amenities": "hot_meals,charging,pet_friendly,wifi",
+    "source": "Hurricane Milton 2024 - Hillsborough County"
+  },
+  {
+    "name": "Shields Middle School",
+    "type": "shelter",
+    "lat": 27.7216,
+    "lng": -82.4312,
+    "address": "15732 Beth Shields Way, Ruskin, FL 33573",
+    "capacity": 300,
+    "amenities": "hot_meals,charging,pet_friendly",
+    "source": "Hurricane Milton 2024 - Hillsborough County"
+  },
+  {
+    "name": "Pizzo Elementary School",
+    "type": "shelter",
+    "lat": 28.0632,
+    "lng": -82.4089,
+    "address": "11701 USF Bull Run Dr., Tampa, FL 33617",
+    "capacity": 200,
+    "amenities": "hot_meals,charging",
+    "source": "Hurricane Milton 2024 - Hillsborough County"
+  },
+  {
+    "name": "Mulrennan Middle School",
+    "type": "shelter",
+    "lat": 27.9489,
+    "lng": -82.2341,
+    "address": "4215 Durant Rd., Valrico, FL 33594",
+    "capacity": 300,
+    "amenities": "hot_meals,charging",
+    "source": "Hurricane Milton 2024 - Hillsborough County"
+  },
+  {
+    "name": "Lockhart Elementary Magnet",
+    "type": "shelter",
+    "lat": 27.9856,
+    "lng": -82.4421,
+    "address": "3719 N. 17th St., Tampa, FL 33610",
+    "capacity": 200,
+    "amenities": "hot_meals,charging",
+    "source": "Hurricane Milton 2024 - Hillsborough County"
+  },
+  {
+    "name": "Collins PK-8 School",
+    "type": "shelter",
+    "lat": 27.8562,
+    "lng": -82.3272,
+    "address": "12424 Summerfield Blvd., Riverview, FL 33569",
+    "capacity": 250,
+    "amenities": "hot_meals,charging",
+    "source": "Hurricane Milton 2024 - Hillsborough County"
+  },
+  {
+    "name": "Erwin Technical College (Special Needs)",
+    "type": "shelter",
+    "lat": 27.9952,
+    "lng": -82.4383,
+    "address": "2010 E. Hillsborough Ave., Tampa, FL 33610",
+    "capacity": 150,
+    "amenities": "hot_meals,charging,pet_friendly,medical_station,wifi",
+    "source": "Hurricane Milton 2024 - Special Needs Shelter"
+  },
+  {
+    "name": "Sumner High School (Special Needs)",
+    "type": "shelter",
+    "lat": 27.8095,
+    "lng": -82.3847,
+    "address": "10650 County Rd 672, Riverview, FL 33579",
+    "capacity": 150,
+    "amenities": "hot_meals,charging,pet_friendly,medical_station,wifi",
+    "source": "Hurricane Milton 2024 - Special Needs Shelter"
+  },
+  {
+    "name": "Strawberry Crest High School (Special Needs)",
+    "type": "shelter",
+    "lat": 27.9942,
+    "lng": -82.2198,
+    "address": "4691 Gallagher Rd., Dover, FL 33527",
+    "capacity": 150,
+    "amenities": "hot_meals,charging,pet_friendly,medical_station",
+    "source": "Hurricane Milton 2024 - Special Needs Shelter"
+  },
+  {
+    "name": "Tampa General Hospital",
+    "type": "medical",
+    "lat": 27.9372,
+    "lng": -82.4585,
+    "address": "1 Tampa General Cir, Tampa, FL 33606",
+    "capacity": 1041,
+    "amenities": "trauma_center,emergency_room,helipad",
+    "source": "FL DOH Healthcare Facilities"
+  },
+  {
+    "name": "St. Joseph's Hospital",
+    "type": "medical",
+    "lat": 27.9818,
+    "lng": -82.4909,
+    "address": "3001 W MLK Jr Blvd, Tampa, FL 33607",
+    "capacity": 929,
+    "amenities": "trauma_center,emergency_room",
+    "source": "FL DOH Healthcare Facilities"
+  },
+  {
+    "name": "Fire Station - Palm River",
+    "type": "fire_station",
+    "lat": 27.9420,
+    "lng": -82.3903,
+    "address": "Palm River, Tampa",
+    "capacity": null,
+    "amenities": "engine,rescue",
+    "source": "Hillsborough County ArcGIS"
+  },
+  {
+    "name": "Fire Station - Westchase",
+    "type": "fire_station",
+    "lat": 28.0527,
+    "lng": -82.6245,
+    "address": "Westchase, Tampa",
+    "capacity": null,
+    "amenities": "engine,rescue,ladder",
+    "source": "Hillsborough County ArcGIS"
+  },
+  {
+    "name": "Fire Station - Riverview",
+    "type": "fire_station",
+    "lat": 27.8625,
+    "lng": -82.3237,
+    "address": "Riverview, FL",
+    "capacity": null,
+    "amenities": "engine,rescue,hazmat",
+    "source": "Hillsborough County ArcGIS"
+  },
+  {
+    "name": "Fire Station - Carrollwood",
+    "type": "fire_station",
+    "lat": 28.0671,
+    "lng": -82.5046,
+    "address": "Carrollwood, Tampa",
+    "capacity": null,
+    "amenities": "engine,rescue",
+    "source": "Hillsborough County ArcGIS"
   }
 ]

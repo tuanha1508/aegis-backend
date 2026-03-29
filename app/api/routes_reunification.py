@@ -1,7 +1,8 @@
 from typing import Any
 from uuid import uuid4
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from app.db.audit import insert_audit_log
 from app.db.database import get_connection
@@ -129,3 +130,42 @@ async def trigger_matching():
         conn.close()
 
     return {**payload, "run_id": str(run_id)}
+
+
+class MatchReview(BaseModel):
+    status: str  # "confirmed" or "rejected"
+    reviewed_by: str
+
+
+@router.patch("/reunification/matches/{match_id}")
+async def review_match(match_id: int, body: MatchReview):
+    """Review a match — confirm or reject it."""
+    if body.status not in ("confirmed", "rejected"):
+        raise HTTPException(status_code=400, detail="Status must be 'confirmed' or 'rejected'")
+
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT * FROM matches WHERE id = %s", (match_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        conn.execute(
+            "UPDATE matches SET status = %s, reviewed_by = %s WHERE id = %s",
+            (body.status, body.reviewed_by, match_id),
+        )
+
+        if body.status == "confirmed":
+            conn.execute(
+                "UPDATE missing_persons SET status = 'found' WHERE id = %s",
+                (row["missing_id"],),
+            )
+            conn.execute(
+                "UPDATE found_persons SET matched_missing_id = %s WHERE id = %s",
+                (row["missing_id"], row["found_id"]),
+            )
+
+        conn.commit()
+        updated = conn.execute("SELECT * FROM matches WHERE id = %s", (match_id,)).fetchone()
+        return dict(updated)
+    finally:
+        conn.close()
