@@ -1390,7 +1390,188 @@ class TestServices:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 15. EDGE CASES & INTEGRATION (7 tests)
+# 15. TEXT-TO-STRUCTURED PARSING (10 tests)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+_MOCK_FOUND_PERSON_JSON = json.dumps({
+    "type": "found",
+    "name": "Maria G.",
+    "age_approx": 70,
+    "gender": "female",
+    "description": "Elderly woman with walker, Spanish speaking",
+    "location": "Middleton High School",
+    "lat": 27.9876,
+    "lng": -82.4367,
+})
+
+_MOCK_MISSING_PERSON_JSON = json.dumps({
+    "type": "missing",
+    "name": "Robert Mitchell",
+    "age_approx": 65,
+    "gender": "male",
+    "description": "Tall, bald, wears hearing aid, diabetic",
+    "location": "Ruskin",
+    "lat": 27.7216,
+    "lng": -82.4312,
+})
+
+_MOCK_RESOURCE_UPDATE_JSON = json.dumps({
+    "name": "Middleton High School",
+    "type": "shelter",
+    "capacity": 500,
+    "current_occupancy": 450,
+    "amenities": "hot_meals,charging,pet_friendly,wifi",
+    "status": "limited",
+    "lat": 27.9876,
+    "lng": -82.4367,
+    "is_new": False,
+})
+
+_MOCK_NEW_RESOURCE_JSON = json.dumps({
+    "name": "Temple Terrace Community Center",
+    "type": "supply_point",
+    "capacity": 100,
+    "current_occupancy": 0,
+    "amenities": "food,water",
+    "status": "open",
+    "lat": 28.035,
+    "lng": -82.389,
+    "is_new": True,
+})
+
+
+class TestReunificationText:
+    def test_report_text_found_person(self, seeded_client, monkeypatch):
+        monkeypatch.setattr("app.services.text_parser._call_llm", lambda _: _MOCK_FOUND_PERSON_JSON)
+        r = seeded_client.post("/api/v1/reunification/report-text", json={
+            "text": "I found an elderly woman named Maria at Middleton High School"
+        })
+        assert r.status_code == 200
+        assert r.json()["type"] == "found"
+        assert r.json()["record"]["name"] == "Maria G."
+
+    def test_report_text_missing_person(self, seeded_client, monkeypatch):
+        monkeypatch.setattr("app.services.text_parser._call_llm", lambda _: _MOCK_MISSING_PERSON_JSON)
+        r = seeded_client.post("/api/v1/reunification/report-text", json={
+            "text": "My father Robert Mitchell is missing from Ruskin area"
+        })
+        assert r.status_code == 200
+        assert r.json()["type"] == "missing"
+        assert r.json()["record"]["name"] == "Robert Mitchell"
+
+    def test_report_text_empty_returns_400(self, client):
+        r = client.post("/api/v1/reunification/report-text", json={"text": ""})
+        assert r.status_code == 400
+
+    def test_report_text_creates_db_record(self, client, monkeypatch):
+        monkeypatch.setattr("app.services.text_parser._call_llm", lambda _: _MOCK_FOUND_PERSON_JSON)
+        client.post("/api/v1/reunification/report-text", json={
+            "text": "Found Maria at shelter"
+        })
+        found = client.get("/api/v1/reunification/found").json()
+        assert any(p["name"] == "Maria G." for p in found)
+
+    def test_report_text_missing_creates_db_record(self, client, monkeypatch):
+        monkeypatch.setattr("app.services.text_parser._call_llm", lambda _: _MOCK_MISSING_PERSON_JSON)
+        client.post("/api/v1/reunification/report-text", json={
+            "text": "Robert Mitchell is missing"
+        })
+        missing = client.get("/api/v1/reunification/missing").json()
+        assert any(p["name"] == "Robert Mitchell" for p in missing)
+
+
+class TestResourceText:
+    def test_report_text_updates_existing(self, seeded_client, monkeypatch):
+        monkeypatch.setattr("app.services.text_parser._call_llm", lambda _: _MOCK_RESOURCE_UPDATE_JSON)
+        r = seeded_client.post("/api/v1/resources/report-text", json={
+            "text": "Middleton High shelter is almost full, 450 people there now"
+        })
+        assert r.status_code == 200
+        assert r.json()["status"] == "updated"
+        assert r.json()["record"]["current_occupancy"] == 450
+
+    def test_report_text_creates_new_resource(self, seeded_client, monkeypatch):
+        monkeypatch.setattr("app.services.text_parser._call_llm", lambda _: _MOCK_NEW_RESOURCE_JSON)
+        r = seeded_client.post("/api/v1/resources/report-text", json={
+            "text": "New supply point at Temple Terrace Community Center with food and water"
+        })
+        assert r.status_code == 200
+        assert r.json()["status"] == "created"
+        assert r.json()["record"]["name"] == "Temple Terrace Community Center"
+
+    def test_report_text_empty_returns_400(self, client):
+        r = client.post("/api/v1/resources/report-text", json={"text": ""})
+        assert r.status_code == 400
+
+    def test_report_text_resource_in_db(self, seeded_client, monkeypatch):
+        monkeypatch.setattr("app.services.text_parser._call_llm", lambda _: _MOCK_NEW_RESOURCE_JSON)
+        seeded_client.post("/api/v1/resources/report-text", json={
+            "text": "Temple Terrace Community Center open"
+        })
+        resources = seeded_client.get("/api/v1/resources").json()
+        assert any(r["name"] == "Temple Terrace Community Center" for r in resources)
+
+    def test_report_text_status_updated(self, seeded_client, monkeypatch):
+        monkeypatch.setattr("app.services.text_parser._call_llm", lambda _: _MOCK_RESOURCE_UPDATE_JSON)
+        seeded_client.post("/api/v1/resources/report-text", json={
+            "text": "Middleton is now limited"
+        })
+        resources = seeded_client.get("/api/v1/resources").json()
+        middleton = [r for r in resources if "Middleton" in r["name"]]
+        assert middleton
+        assert middleton[0]["status"] == "limited"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 16. DEMO SIMULATION STREAM (6 tests)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestDemoStream:
+    def test_stream_status_returns_200(self, client):
+        r = client.get("/api/v1/simulation/demo-stream")
+        assert r.status_code == 200
+        assert "running" in r.json()
+        assert "injected" in r.json()
+        assert "total" in r.json()
+
+    def test_stream_stop_returns_200(self, client):
+        r = client.post("/api/v1/simulation/demo-stream/stop")
+        assert r.status_code == 200
+        assert r.json()["status"] == "stopped"
+
+    def test_stream_total_matches_schedule(self, client):
+        from app.services.demo_stream import _SCHEDULE
+        r = client.get("/api/v1/simulation/demo-stream")
+        assert r.json()["total"] == len(_SCHEDULE)
+
+    def test_inject_found_person_directly(self, seeded_client):
+        from app.services.demo_stream import _inject_found_person, STREAM_FOUND_PERSONS
+        found_before = len(seeded_client.get("/api/v1/reunification/found").json())
+        _inject_found_person(STREAM_FOUND_PERSONS[0])
+        found_after = len(seeded_client.get("/api/v1/reunification/found").json())
+        assert found_after == found_before + 1
+
+    def test_inject_resource_update_directly(self, seeded_client):
+        from app.services.demo_stream import _inject_resource_update, STREAM_RESOURCE_UPDATES
+        _inject_resource_update(STREAM_RESOURCE_UPDATES[0])
+        resources = seeded_client.get("/api/v1/resources").json()
+        middleton = [r for r in resources if "Middleton" in r["name"]]
+        assert middleton
+        assert middleton[0]["current_occupancy"] == STREAM_RESOURCE_UPDATES[0]["current_occupancy"]
+
+    def test_inject_multiple_found_persons(self, seeded_client):
+        from app.services.demo_stream import _inject_found_person, STREAM_FOUND_PERSONS
+        found_before = len(seeded_client.get("/api/v1/reunification/found").json())
+        for person in STREAM_FOUND_PERSONS[:3]:
+            _inject_found_person(person)
+        found_after = len(seeded_client.get("/api/v1/reunification/found").json())
+        assert found_after == found_before + 3
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 17. EDGE CASES & INTEGRATION (7 tests)
 # ═══════════════════════════════════════════════════════════════════════════
 
 

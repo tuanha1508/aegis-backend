@@ -132,6 +132,65 @@ async def trigger_matching():
     return {**payload, "run_id": str(run_id)}
 
 
+class TextReport(BaseModel):
+    text: str
+
+
+@router.post("/reunification/report-text")
+async def report_person_text(body: TextReport):
+    """Parse free-form text into a found or missing person record using Gemini.
+
+    Example inputs:
+      - "I found an elderly woman named Maria at First Baptist Church"
+      - "My father Robert Mitchell, 65, is missing from Ruskin"
+    """
+    if not body.text.strip():
+        raise HTTPException(status_code=400, detail="text is required")
+
+    from app.services.text_parser import parse_person_text
+
+    parsed = parse_person_text(body.text)
+    person_type = parsed.get("type", "found")
+
+    conn = get_connection()
+    try:
+        if person_type == "missing":
+            row = conn.execute(
+                """INSERT INTO missing_persons
+                   (reported_by, name, age, gender, description,
+                    last_known_location, last_known_lat, last_known_lng)
+                   VALUES ('text_report', %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                (
+                    parsed.get("name", "Unknown"),
+                    parsed.get("age_approx"),
+                    parsed.get("gender"),
+                    parsed.get("description", ""),
+                    parsed.get("location", ""),
+                    parsed.get("lat"),
+                    parsed.get("lng"),
+                ),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                """INSERT INTO found_persons
+                   (name, age_approx, gender, description, found_at, found_lat, found_lng)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                (
+                    parsed.get("name", "Unknown"),
+                    parsed.get("age_approx"),
+                    parsed.get("gender"),
+                    parsed.get("description", ""),
+                    parsed.get("location", ""),
+                    parsed.get("lat"),
+                    parsed.get("lng"),
+                ),
+            ).fetchone()
+        conn.commit()
+        return {"status": "ok", "type": person_type, "parsed": parsed, "record": dict(row)}
+    finally:
+        conn.close()
+
+
 class MatchReview(BaseModel):
     status: str  # "confirmed" or "rejected"
     reviewed_by: str
