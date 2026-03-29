@@ -338,24 +338,31 @@ async def get_news_feed() -> dict:
         except (httpx.HTTPError, ET.ParseError) as e:
             logger.warning("NWS Atom feed failed: %s", e)
 
-        # 3. FEMA recent FL declarations
+        # 3. FEMA recent FL declarations (deduplicate by disaster number)
         try:
             resp = await client.get(
                 "https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries",
-                params={"$filter": "state eq 'FL'", "$orderby": "declarationDate desc", "$top": "5"},
+                params={"$filter": "state eq 'FL'", "$orderby": "declarationDate desc", "$top": "20"},
             )
             if resp.status_code == 200:
+                seen_disasters: set[str] = set()
                 for dec in resp.json().get("DisasterDeclarationsSummaries", []):
-                    title = f"FEMA Disaster: {dec.get('declarationTitle', '')}"
+                    disaster_num = str(dec.get("disasterNumber", ""))
+                    if disaster_num in seen_disasters:
+                        continue
+                    seen_disasters.add(disaster_num)
+                    title_name = dec.get("declarationTitle", "")
                     items.append({
                         "source": "FEMA",
-                        "title": title,
-                        "summary": f"{dec.get('incidentType', '')} — {dec.get('designatedArea', '')}",
-                        "url": f"https://www.fema.gov/disaster/{dec.get('disasterNumber', '')}",
+                        "title": f"FEMA: {title_name}",
+                        "summary": f"{dec.get('incidentType', '')} — declared {dec.get('declarationDate', '')[:10]} — {dec.get('designatedArea', '')}",
+                        "url": f"https://www.fema.gov/disaster/{disaster_num}",
                         "published_at": dec.get("declarationDate", ""),
-                        "severity": "moderate",
-                        "category": _categorize(title),
+                        "severity": "severe" if "hurricane" in title_name.lower() else "moderate",
+                        "category": _categorize(title_name),
                     })
+                    if len(seen_disasters) >= 5:
+                        break
         except (httpx.HTTPError, KeyError, ValueError) as e:
             logger.warning("FEMA API fetch failed: %s", e)
 
@@ -379,6 +386,19 @@ async def get_news_feed() -> dict:
                         })
         except (httpx.HTTPError, ET.ParseError) as e:
             logger.warning("USGS RSS fetch failed: %s", e)
+
+    # Deduplicate by title and filter out generic filler
+    seen_titles: set[str] = set()
+    deduped: list[dict] = []
+    for item in items:
+        title = item["title"].strip().lower()
+        # Skip generic NHC filler
+        if "hurricane season runs from" in title:
+            continue
+        if title not in seen_titles:
+            seen_titles.add(title)
+            deduped.append(item)
+    items = deduped
 
     # Sort newest first, limit 20
     items.sort(key=lambda x: x.get("published_at", ""), reverse=True)
