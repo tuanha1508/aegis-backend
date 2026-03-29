@@ -34,6 +34,7 @@ from app.api import (
     routes_audit,
     routes_live,
     routes_orchestration,
+    routes_commander,
 )
 from app.db.database import init_db
 
@@ -95,6 +96,7 @@ app.include_router(routes_assignments.router, prefix=PREFIX)
 app.include_router(routes_audit.router, prefix=PREFIX)
 app.include_router(routes_live.router, prefix=PREFIX)
 app.include_router(routes_orchestration.router, prefix=PREFIX)
+app.include_router(routes_commander.router, prefix=PREFIX)
 
 
 @app.get("/")

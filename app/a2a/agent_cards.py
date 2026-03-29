@@ -155,6 +155,41 @@ def get_aegis_agent_card() -> dict:
                 "inputModes": ["text/plain"],
                 "outputModes": ["application/json"],
             },
+            {
+                "id": "aegis-commander",
+                "name": "Situation Commander",
+                "description": (
+                    "Central intelligence coordinator that accepts natural language "
+                    "questions and delegates to all specialist agents. Returns "
+                    "synthesized situational awareness reports."
+                ),
+                "tags": ["commander", "nlp", "synthesis", "a2a", "delegation"],
+                "examples": [
+                    "What's the current situation in Tampa Bay?",
+                    "Is Davis Islands safe right now?",
+                    "Has Maria Garcia been found?",
+                    "Where can people go for shelter?",
+                    "What should we do next?",
+                ],
+                "inputModes": ["text/plain"],
+                "outputModes": ["application/json"],
+            },
+            {
+                "id": "aegis-verification",
+                "name": "Verification LoopAgent",
+                "description": (
+                    "Self-correcting LoopAgent that iteratively reviews severity "
+                    "scores, identifies scoring errors, and re-scores incidents. "
+                    "Demonstrates autonomous self-correction capability."
+                ),
+                "tags": ["verification", "loop-agent", "self-correction", "quality-control"],
+                "examples": [
+                    "Review and verify all incident severity scores",
+                    "Self-correct any mis-scored incidents",
+                ],
+                "inputModes": ["text/plain"],
+                "outputModes": ["application/json"],
+            },
         ],
         "supportedInterfaces": [
             {
