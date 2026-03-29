@@ -130,8 +130,8 @@ def parse_report(
         lat: Latitude coordinate for the location (use Tampa reference data).
         lng: Longitude coordinate for the location (use Tampa reference data).
         incident_type: One of: 'flooding', 'trapped_person', 'road_blocked',
-                       'power_outage', 'supply_needed', 'structural_damage',
-                       'medical_emergency', 'fire', 'looting', 'other'.
+                       'power_outage', 'supply_needed', 'resource_status',
+                       'structural_damage', 'medical_emergency', 'fire', 'looting', 'other'.
         people_mentioned: Number of people mentioned in the report (0 if none).
         has_children: 1 if children are mentioned, 0 otherwise.
         language: Detected language code ('en', 'es', 'ht', etc.).
@@ -199,8 +199,8 @@ used for incident tracking and emergency response.
      known location (neighborhood, shelter, or landmark). If the report mentions
      a general area like "South Tampa", use that neighborhood's coordinates.
    - **incident_type**: Classify as one of: 'flooding', 'trapped_person',
-     'road_blocked', 'power_outage', 'supply_needed', 'structural_damage',
-     'medical_emergency', 'fire', 'looting', 'other'
+     'road_blocked', 'power_outage', 'supply_needed', 'resource_status',
+     'structural_damage', 'medical_emergency', 'fire', 'looting', 'other'
    - **people_mentioned**: Count of people mentioned (0 if none specified)
    - **has_children**: 1 if children are mentioned or implied, 0 otherwise
    - **language**: Detect the language ('en' for English, 'es' for Spanish, etc.)
@@ -209,11 +209,17 @@ used for incident tracking and emergency response.
 
 ## Classification Rules
 
+- **resource_status** (IMPORTANT): Use when the message is mainly about whether a **named shelter,
+  distribution point, food bank, or supply location** is full, closed, out of food/water, or
+  running low — NOT when the reporter is asking for personal supplies at their location (that is
+  `supply_needed`). Examples: "First Baptist shelter is full", "Feeding Tampa Bay ran out of water",
+  "Convention center shelter at capacity", "Metropolitan Ministries closed".
 - "flooding", "water rising", "water entering" → flooding
 - "trapped", "stuck", "can't get out", "stranded" → trapped_person
 - "tree down", "road blocked", "road closed" → road_blocked
 - "power out", "no electricity", "lights out" → power_outage
-- "need supplies", "need water", "need food", "need blankets" → supply_needed
+- "need supplies", "need water", "need food", "need blankets" (reporter needs help at their
+  location) → supply_needed
 - "building damage", "roof collapsed", "wall down" → structural_damage
 - "injured", "medical", "heart attack", "bleeding" → medical_emergency
 - "fire", "burning", "smoke" → fire

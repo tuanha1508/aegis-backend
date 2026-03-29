@@ -1,13 +1,83 @@
+import json
 import math
 from typing import Optional
+from uuid import uuid4
 
+import httpx
 from fastapi import APIRouter, HTTPException, Query
 from psycopg import sql
 
+from app.agents.resource_agent import run_resource_sync
+from app.config import DEMO_MODE
+from app.db.audit import insert_audit_log
 from app.db.database import get_connection
-from app.models.resource import ResourceUpdate
+from app.models.resource import ResourcePlanRequest, ResourcePlanResponse, ResourceUpdate
+from app.services.resource_plan_service import build_resource_plan, maybe_narrative
 
 router = APIRouter(tags=["resources"])
+
+
+@router.post("/resources/sync")
+async def sync_resources():
+    run_id = uuid4()
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT current_phase FROM phase WHERE id = 1").fetchone()
+        phase = row["current_phase"] if row else None
+        try:
+            result = run_resource_sync(conn, run_id=run_id)
+        except (httpx.HTTPError, json.JSONDecodeError) as exc:
+            insert_audit_log(
+                conn,
+                agent_name="resource_agent",
+                run_id=run_id,
+                phase=phase,
+                input_payload={
+                    "trigger": "POST /resources/sync",
+                    "demo_mode": DEMO_MODE,
+                },
+                output_payload={"status": "error"},
+                error_message=type(exc).__name__,
+            )
+            conn.commit()
+            raise HTTPException(
+                status_code=503,
+                detail="Resource discovery service unavailable. Try again later.",
+            ) from exc
+        insert_audit_log(
+            conn,
+            agent_name="resource_agent",
+            run_id=run_id,
+            phase=phase,
+            input_payload={
+                "trigger": "POST /resources/sync",
+                "demo_mode": DEMO_MODE,
+            },
+            output_payload=result,
+        )
+        conn.commit()
+        return {**result, "run_id": str(run_id), "status": "ok"}
+    finally:
+        conn.close()
+
+
+@router.post("/resources/plan", response_model=ResourcePlanResponse)
+async def plan_resources(body: ResourcePlanRequest):
+    """Suggest nearby open/limited resources by type for evacuation or supplies."""
+    try:
+        plan = build_resource_plan(
+            body.lat, body.lng, body.needs, max_miles=body.max_miles
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    narrative = maybe_narrative(plan)
+    return ResourcePlanResponse(
+        origin=plan["origin"],
+        max_miles=plan["max_miles"],
+        needs=plan["needs"],
+        recommendations=plan["recommendations"],
+        narrative=narrative,
+    )
 
 
 @router.get("/resources")

@@ -1,0 +1,29 @@
+[
+  {
+    "name": "Metropolitan Ministries Tampa Distribution",
+    "type": "supply_point",
+    "lat": 27.9962,
+    "lng": -82.4376,
+    "address": "2002 N Florida Ave, Tampa, FL 33602",
+    "capacity": null,
+    "amenities": "food_bank,water,hygiene_kits"
+  },
+  {
+    "name": "Feeding Tampa Bay Main HQ",
+    "type": "supply_point",
+    "lat": 27.8874,
+    "lng": -82.4069,
+    "address": "4702 Transport Dr, Tampa, FL 33605",
+    "capacity": null,
+    "amenities": "food_bank,truck_loading"
+  },
+  {
+    "name": "Crisis Center of Tampa Bay",
+    "type": "supply_point",
+    "lat": 27.9559,
+    "lng": -82.4846,
+    "address": "One Crisis Center Plaza, Tampa, FL 33613",
+    "capacity": null,
+    "amenities": "counseling,referrals,supplies"
+  }
+]
